@@ -16,6 +16,6 @@ function Backup-GameSaves {
     $gameName = $_.Name
     $rawPath = $_.Value
     $expandedPath = [Environment]::ExpandEnvironmentVariables($rawPath)
-    Save $expandedPath "saves\$gameName"
+    Save-File $expandedPath "saves\$gameName"
   }
 }
