@@ -1,6 +1,6 @@
 <#
 ytdl-tools.ps1 — Fonctions PowerShell pour gérer les téléchargements YouTube avec yt-dlp
-Auteur : Serge & Copilot
+Auteur : Serge
 #>
 
 function ytdl-update {
@@ -13,7 +13,7 @@ Utilise yt-dlp pour récupérer les vidéos les plus récentes, en évitant les 
 Par défaut : chaîne 1minShorts, 2 vidéos, dossier $HOME\Videos\ytdl.
 
 .PARAMETER url
-URL de la chaîne ou playlist YouTube (par défaut : https://www.youtube.com/@1minShorts/shorts)
+URL de la chaîne ou playlist YouTube (par défaut : https://www.youtube.com/@1minshorts/shorts)
 
 .PARAMETER count
 Nombre de vidéos à télécharger (par défaut : 2)
@@ -21,16 +21,26 @@ Nombre de vidéos à télécharger (par défaut : 2)
 .PARAMETER reset
 Si présent, supprime l’archive et ne télécharge rien
 
+.PARAMETER dryRun
+Affiche les vidéos détectées sans les télécharger
+
+.PARAMETER quiet
+Réduit la verbosité de yt-dlp (pas de progression, pas de warnings)
+
 .EXAMPLE
 ytdl-update
 ytdl-update -url "https://www.youtube.com/@arteconcert" -count 5
 ytdl-update -reset
+ytdl-update -dryRun
+ytdl-update -quiet
 #>
 
     param(
-        [string]$url = "https://www.youtube.com/@1minShorts/shorts",
+        [string]$url = "https://www.youtube.com/@1minshorts/shorts",
         [int]$count = 2,
-        [switch]$reset
+        [switch]$reset,
+        [switch]$dryRun,
+        [switch]$quiet
     )
 
     $configDir = "$HOME\.config\ytdl"
@@ -50,19 +60,51 @@ ytdl-update -reset
         } else {
             Write-Host "ℹ️ Aucun fichier archive à supprimer."
         }
+        if (-not $dryRun) {
+            return
+        }
+    }
+
+    $verbosity = if ($quiet) {
+        "--quiet --no-warnings --no-progress"
+    } else {
+        ""
+    }
+
+    if ($dryRun) {
+        Write-Host "`n🔍 Dry-run activé : détection des vidéos sans téléchargement…`n"
+
+        $cmd = @(
+            "yt-dlp",
+            $verbosity,
+            "--download-archive `"$archivePath`"",
+            "--max-downloads $count",
+            "--skip-download",
+            "--print `"%(title)s | Duration: %(duration_string)s | Date: %(upload_date)s | URL: https://youtu.be/%(id)s`"",
+            "-i",
+            "`"$url`""
+        ) -join " "
+
+        Invoke-Expression $cmd
         return
     }
 
     $beforeCount = (Get-ChildItem -Path $videoDir -File).Count
 
-    yt-dlp `
-      --download-archive $archivePath `
-      --max-downloads $count `
-      -f bestvideo+bestaudio `
-      --merge-output-format mp4 `
-      -P $videoDir `
-      -i `
-      $url
+    $cmd = @(
+        "yt-dlp",
+        $verbosity,
+        "--download-archive `"$archivePath`"",
+        "--max-downloads $count",
+        "-f bestvideo+bestaudio",
+        "--merge-output-format mp4",
+        "-P `"$videoDir`"",
+        "-i",
+        "`"$url`""
+    ) -join " "
+
+    Write-Host "`n📥 Téléchargement des vidéos détectées…`n"
+    Invoke-Expression $cmd
 
     $afterCount = (Get-ChildItem -Path $videoDir -File).Count
     $downloaded = $afterCount - $beforeCount
