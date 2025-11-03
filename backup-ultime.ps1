@@ -39,7 +39,7 @@ $tempChocoExport = Join-Path $env:TEMP "packages-choco.config"
 choco export --include-version-numbers $tempChocoExport
 
 if (Test-Path $tempChocoExport) {
-  Save-File $tempChocoExport "packages-choco.config"
+  Save-Item $tempChocoExport "packages-choco.config"
   Write-Host "✅ Chocolatey exporté et copié dans les deux backups" -ForegroundColor Green
   Remove-Item $tempChocoExport
 } else {
@@ -63,23 +63,23 @@ Save-Text $extensions "vscode-extensions.txt"
 Write-Host "✅ Extensions VSCode sauvegardées" -ForegroundColor Green
 
 # 5. Réglages VSCode
-Save-File "$env:APPDATA\Code\User\settings.json" "vscode-settings.json"
+Save-Item "$env:APPDATA\Code\User\settings.json" "vscode-settings.json"
 Write-Host "✅ Réglages VSCode copiés" -ForegroundColor Green
 
 # 6. Profil Git
-Save-File "$env:USERPROFILE\.gitconfig" ".gitconfig"
+Save-Item "$env:USERPROFILE\.gitconfig" ".gitconfig"
 Write-Host "✅ Fichier .gitconfig sauvegardé" -ForegroundColor Green
 
 # 7. Clés SSH
-Copy-FolderToBothWithExclusions "$env:USERPROFILE\.ssh" "ssh" @("known_hosts.old", "config.bak")
+Save-ItemWithExclusions "$env:USERPROFILE\.ssh" "ssh" @("known_hosts.old", "config.bak")
 Write-Host "✅ Clés SSH sauvegardées (fichiers inutiles exclus)" -ForegroundColor Green
 
 # 8. Fly.io
-Copy-FolderToBothWithExclusions "$env:USERPROFILE\.fly" "fly" @("bin", "flyctl.exe", "flyctl", "wintun.dll")
+Save-ItemWithExclusions "$env:USERPROFILE\.fly" "fly" @("bin", "flyctl.exe", "flyctl", "wintun.dll")
 Write-Host "✅ Config Fly.io sauvegardée (sans le dossier bin ni les exécutables)" -ForegroundColor Green
 
 # 9. Dossier .config (avec exclusions)
-Copy-FolderToBothWithExclusions "$env:USERPROFILE\.config" "config" @("__pycache__", "cache", "temp")
+Save-ItemWithExclusions "$env:USERPROFILE\.config" "config" @("__pycache__", "cache", "temp")
 Write-Host "✅ Dossier .config sauvegardé (exclusions appliquées)" -ForegroundColor Green
 
 # 10. Fichiers .env (renommés par projet)

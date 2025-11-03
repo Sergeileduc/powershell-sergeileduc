@@ -88,10 +88,10 @@ Nécessite que les variables globales $global:backupTimestamped et $global:backu
   Write-Host "✅ Contenu sauvegardé : $filename" -ForegroundColor Green
 }
 
-function Save-File {
+function Save-Item {
 <#
 .SYNOPSIS
-Copie un fichier ou dossier vers les deux emplacements de sauvegarde.
+Sauvegarde un fichier ou dossier vers deux emplacements : horodaté et latest.
 
 .DESCRIPTION
 Copie un fichier ou un dossier existant dans :
@@ -105,7 +105,7 @@ Chemin du fichier ou dossier à copier.
 Nom du fichier ou dossier cible (relatif).
 
 .EXAMPLE
-Save-File "C:\data\notes.txt" "notes.txt"
+Save-Item "C:\data\notes.txt" "notes.txt"
 
 .NOTES
 Nécessite que les variables globales $global:backupTimestamped et $global:backupLatest soient initialisées.
@@ -137,38 +137,53 @@ Nécessite que les variables globales $global:backupTimestamped et $global:backu
     }
   }
 
-  Write-Host "✅ Fichier sauvegardé : $relativeTarget" -ForegroundColor Green
+  Write-Host "✅ Sauvegarde : $relativeTarget" -ForegroundColor Green
 }
 
 
-function Copy-FolderToBothWithExclusions {
-  <#
-    .SYNOPSIS
-    Copie un dossier vers les deux dossiers de backup, en excluant certains fichiers ou sous-dossiers.
+function Save-ItemWithExclusions {
+<#
+.SYNOPSIS
+Sauvegarde un dossier vers deux emplacements en excluant certains fichiers ou sous-dossiers.
 
-    .PARAMETER source
-    Chemin du dossier source à copier.
+.DESCRIPTION
+Copie un dossier existant dans :
+- Un dossier horodaté (`$global:backupTimestamped`)
+- Un dossier "latest" (`$global:backupLatest`)
+En excluant les fichiers ou dossiers spécifiés.
 
-    .PARAMETER targetName
-    Nom du dossier cible dans les backups.
+.PARAMETER sourcePath
+Chemin du dossier source.
 
-    .PARAMETER excludeNames
-    Liste des noms à exclure (fichiers ou dossiers).
+.PARAMETER relativeTarget
+Chemin relatif de destination.
 
-    .EXAMPLE
-    Copy-FolderToBothWithExclusions "$env:USERPROFILE\.ssh" "ssh" @("known_hosts.old", "config.bak")
-  #>
+.PARAMETER excludeNames
+Liste des noms ou extensions à exclure.
+
+.EXAMPLE
+Save-ItemWithExclusions "$env:USERPROFILE\.ssh" "ssh" @("known_hosts.old", "config.bak")
+#>
 
   param (
-    [string]$source,
-    [string]$targetName,
-    [string[]]$excludeNames
+    [string]$sourcePath,
+    [string]$relativeTarget,
+    [string[]]$excludeNames = @()
   )
 
-  foreach ($dest in @($global:backupTimestamped, $global:backupLatest)) {
-    $target = Join-Path $dest $targetName
-    Copy-FolderWithExclusions -Source $source -Destination $target -ExcludeNames $excludeNames
+  if (!(Test-Path $sourcePath -PathType Container)) {
+    Write-Host "⚠️ Dossier source introuvable : $sourcePath" -ForegroundColor Yellow
+    return
   }
+
+  $target1 = Join-Path $global:backupTimestamped $relativeTarget
+  $target2 = Join-Path $global:backupLatest $relativeTarget
+
+  foreach ($target in @($target1, $target2)) {
+    Copy-FolderWithExclusions -Source $sourcePath -Destination $target -ExcludeNames $excludeNames
+  }
+
+  Write-Host "✅ Sauvegarde avec exclusions : $relativeTarget" -ForegroundColor Green
 }
 
 function Copy-EnvFilesToBoth {
