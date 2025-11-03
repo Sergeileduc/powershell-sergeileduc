@@ -13,7 +13,7 @@ Utilise yt-dlp pour récupérer les vidéos les plus récentes, en évitant les 
 Par défaut : chaîne 1minShorts, 2 vidéos, dossier $HOME\Videos\ytdl.
 
 .PARAMETER url
-URL de la chaîne ou playlist YouTube (par défaut : https://www.youtube.com/@1minShorts)
+URL de la chaîne ou playlist YouTube (par défaut : https://www.youtube.com/@1minShorts/shorts)
 
 .PARAMETER count
 Nombre de vidéos à télécharger (par défaut : 2)
@@ -28,7 +28,7 @@ ytdl-update -reset
 #>
 
     param(
-        [string]$url = "https://www.youtube.com/@1minShorts",
+        [string]$url = "https://www.youtube.com/@1minShorts/shorts",
         [int]$count = 2,
         [switch]$reset
     )
