@@ -1,104 +1,68 @@
-Write-Host "🔧 Nettoyage NVIDIA DXCache..."
-Remove-Item "$env:LOCALAPPDATA\NVIDIA\DXCache\*" -Recurse -Force -ErrorAction SilentlyContinue
+# 🔧 NVIDIA
+Write-Host "`n🔧 Nettoyage NVIDIA"
+Clear-Folder @(
+  @{ Path = "$env:LOCALAPPDATA\NVIDIA\DXCache\*"; Label = "DXCache" },
+  @{ Path = "$env:LOCALAPPDATA\NVIDIA\GLCache\*"; Label = "GLCache" },
+  @{ Path = "C:\ProgramData\NVIDIA Corporation\Downloader\*"; Label = "Downloader" },
+  @{ Path = "C:\ProgramData\NVIDIA Corporation\NVIDIA App\UpdateFramework\ota-artifacts\*"; Label = "OTA Artifacts" }
+)
 
-Write-Host "🔧 Nettoyage des artefacts OTA NVIDIA App..."
-$nvidiaOtaPath = "C:\ProgramData\NVIDIA Corporation\NVIDIA App\UpdateFramework\ota-artifacts\*"
-Remove-Item $nvidiaOtaPath -Recurse -Force -ErrorAction SilentlyContinue
-
-Write-Host "🔧 Nettoyage du dossier NVIDIA Downloader..."
-$nvidiaDownloaderPath = "C:\ProgramData\NVIDIA Corporation\Downloader\*"
-Remove-Item $nvidiaDownloaderPath -Recurse -Force -ErrorAction SilentlyContinue
-
-Write-Host "🔧 Nettoyage NVIDIA GLCache..."
-Remove-Item "$env:LOCALAPPDATA\NVIDIA\GLCache\*" -Recurse -Force -ErrorAction SilentlyContinue
-
-Write-Host "🔧 Nettoyage Chrome Cache..."
-$chromeCachePaths = @(
+# 🔧 Chrome
+Write-Host "`n🔧 Nettoyage Chrome"
+Clear-Folder @(
   "$env:LOCALAPPDATA\Google\Chrome\User Data\Default\Cache\*",
   "$env:LOCALAPPDATA\Google\Chrome\User Data\Default\Code Cache\*",
   "$env:LOCALAPPDATA\Google\Chrome\User Data\ShaderCache\*",
-  "$env:LOCALAPPDATA\Google\Chrome\User Data\Crashpad\*"
-)
-
-foreach ($path in $chromeCachePaths) {
-  Write-Host "  → Suppression de $path"
-  Remove-Item $path -Recurse -Force -ErrorAction SilentlyContinue
-}
-
-Write-Host "🔧 Nettoyage Chrome Service Worker caches..."
-$swCachePaths = @(
+  "$env:LOCALAPPDATA\Google\Chrome\User Data\Crashpad\*",
   "$env:LOCALAPPDATA\Google\Chrome\User Data\Default\Service Worker\CacheStorage\*",
   "$env:LOCALAPPDATA\Google\Chrome\User Data\Default\Service Worker\ScriptCache\*"
 )
 
-foreach ($path in $swCachePaths) {
-  Write-Host "  → Suppression de $path"
-  Remove-Item $path -Recurse -Force -ErrorAction SilentlyContinue
-}
-
-Write-Host "🔧 Suppression du dossier OptGuideOnDeviceModel..."
+# Suppression spécifique
 $optGuidePath = "$env:LOCALAPPDATA\Google\Chrome\User Data\OptGuideOnDeviceModel"
+Write-Host "🧹 OptGuideOnDeviceModel → $optGuidePath"
 if (Test-Path $optGuidePath) {
   Remove-Item $optGuidePath -Recurse -Force -ErrorAction SilentlyContinue
-  Write-Host "  → Supprimé : $optGuidePath"
+  Write-Host "✅ Supprimé"
 } else {
-  Write-Host "  → Dossier absent : $optGuidePath"
+  Write-Host "⚠️ Dossier absent"
 }
 
-Write-Host "🔧 Nettoyage Edge caches..."
-$edgePaths = @(
+# 🔧 Edge
+Write-Host "`n🔧 Nettoyage Edge"
+Clear-Folder @(
   "$env:LOCALAPPDATA\Microsoft\Edge\User Data\Default\Cache\*",
   "$env:LOCALAPPDATA\Microsoft\Edge\User Data\Default\Code Cache\*",
   "$env:LOCALAPPDATA\Microsoft\Edge\User Data\Default\ShaderCache\*",
   "$env:LOCALAPPDATA\Microsoft\Edge\User Data\Default\Crashpad\*",
   "$env:LOCALAPPDATA\Microsoft\Edge\User Data\Default\Service Worker\CacheStorage\*",
-  "$env:LOCALAPPDATA\Microsoft\Edge\User Data\Default\Service Worker\ScriptCache\*"
-)
-
-foreach ($path in $edgePaths) {
-  Write-Host "  → Suppression de $path"
-  Remove-Item $path -Recurse -Force -ErrorAction SilentlyContinue
-}
-
-Write-Host "🔧 Suppression du dossier ProvenanceData (Edge)..."
-$provPath = "$env:LOCALAPPDATA\Microsoft\Edge\User Data\ProvenanceData"
-if (Test-Path $provPath) {
-  Remove-Item $provPath -Recurse -Force -ErrorAction SilentlyContinue
-  Write-Host "  → Supprimé : $provPath"
-} else {
-  Write-Host "  → Dossier absent : $provPath"
-}
-
-Write-Host "🔧 Nettoyage des caches CRX (Edge)..."
-$crxPaths = @(
+  "$env:LOCALAPPDATA\Microsoft\Edge\User Data\Default\Service Worker\ScriptCache\*",
   "$env:LOCALAPPDATA\Microsoft\Edge\User Data\component_crx_cache\*",
   "$env:LOCALAPPDATA\Microsoft\Edge\User Data\extensions_crx_cache\*"
 )
 
-foreach ($path in $crxPaths) {
-  Write-Host "  → Suppression de $path"
-  Remove-Item $path -Recurse -Force -ErrorAction SilentlyContinue
+# Suppression spécifique
+$provPath = "$env:LOCALAPPDATA\Microsoft\Edge\User Data\ProvenanceData"
+Write-Host "🧹 ProvenanceData → $provPath"
+if (Test-Path $provPath) {
+  Remove-Item $provPath -Recurse -Force -ErrorAction SilentlyContinue
+  Write-Host "✅ Supprimé"
+} else {
+  Write-Host "⚠️ Dossier absent"
 }
 
-Write-Host "🔧 Nettoyage des fichiers temporaires OneDrive..."
-$oneDrivePaths = @(
+# 🔧 OneDrive
+Write-Host "`n🔧 Nettoyage OneDrive"
+Clear-Folder @(
   "$env:LOCALAPPDATA\Microsoft\OneDrive\logs\*",
   "$env:LOCALAPPDATA\Microsoft\OneDrive\setup\*",
   "$env:LOCALAPPDATA\Microsoft\OneDrive\temp\*",
   "$env:LOCALAPPDATA\Microsoft\OneDrive\Telemetry\*"
 )
 
-foreach ($path in $oneDrivePaths) {
-  Write-Host "  → Suppression de $path"
-  Remove-Item $path -Recurse -Force -ErrorAction SilentlyContinue
-}
-
-Write-Host "🔧 Nettoyage du dossier Temp..."
-$tempPath = "$env:LOCALAPPDATA\Temp\*"
-Remove-Item $tempPath -Recurse -Force -ErrorAction SilentlyContinue
-
-Write-Host "🔧 Nettoyage des caches VS Code..."
-$vsCodePaths = @(
+# 🔧 VS Code
+Write-Host "`n🔧 Nettoyage VS Code"
+Clear-Folder @(
   "$env:APPDATA\Code\Cache\*",
   "$env:APPDATA\Code\CachedData\*",
   "$env:APPDATA\Code\CachedExtensionVSIXs\*",
@@ -107,25 +71,20 @@ $vsCodePaths = @(
   "$env:APPDATA\Code\webstorage\*"
 )
 
-foreach ($path in $vsCodePaths) {
-  Write-Host "  → Suppression de $path"
-  Remove-Item $path -Recurse -Force -ErrorAction SilentlyContinue
-}
-
-Write-Host "🔧 Nettoyage des caches Discord..."
-$discordPaths = @(
+# 🔧 Discord
+Write-Host "`n🔧 Nettoyage Discord"
+Clear-Folder @(
   "$env:APPDATA\discord\Cache\*",
   "$env:APPDATA\discord\logs\*"
 )
 
-foreach ($path in $discordPaths) {
-  Write-Host "  → Suppression de $path"
-  Remove-Item $path -Recurse -Force -ErrorAction SilentlyContinue
-}
+# 🔧 pip
+Write-Host "`n🔧 Nettoyage pip"
+Clear-Folder "$env:LOCALAPPDATA\pip\cache\*"
 
-Write-Host "🔧 Nettoyage du cache pip..."
-$pipCachePath = "$env:LOCALAPPDATA\pip\cache\*"
-Remove-Item $pipCachePath -Recurse -Force -ErrorAction SilentlyContinue
+# 🔧 Temp utilisateur
+Write-Host "`n🔧 Nettoyage Temp utilisateur"
+Clear-Folder "$env:LOCALAPPDATA\Temp\*"
 
 Write-Host "`n✅ Nettoyage terminé."
 Read-Host "Appuie sur Entrée pour fermer"
