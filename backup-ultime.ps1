@@ -39,7 +39,7 @@ $tempChocoExport = Join-Path $env:TEMP "packages-choco.config"
 choco export --include-version-numbers $tempChocoExport
 
 if (Test-Path $tempChocoExport) {
-  Save-File $tempChocoExport "packages-choco.config"
+  Save $tempChocoExport "packages-choco.config"
   Write-Host "✅ Chocolatey exporté et copié dans les deux backups" -ForegroundColor Green
   Remove-Item $tempChocoExport
 } else {
@@ -48,38 +48,38 @@ if (Test-Path $tempChocoExport) {
 
 # 2. pip
 $pipList = pip freeze | Out-String
-Save-Text $pipList "requirements.txt"
+Save -textContent $pipList -relativeTarget "requirements.txt"
 Write-Host "✅ pip freeze enregistré" -ForegroundColor Green
 
 # 3. Variables d’environnement
 $envVars = Get-ChildItem Env: | ForEach-Object { "$($_.Name),$($_.Value)" }
 $envVarsText = $envVars -join "`n"
-Save-Text $envVarsText "env-vars.csv"
+Save -textContent $envVarsText -relativeTarget "env-vars.csv"
 Write-Host "✅ Variables d’environnement sauvegardées" -ForegroundColor Green
 
 # 4. Extensions VSCode
 $extensions = code --list-extensions | Out-String
-Save-Text $extensions "vscode-extensions.txt"
+Save -textContent $extensions -relativeTarget "vscode-extensions.txt"
 Write-Host "✅ Extensions VSCode sauvegardées" -ForegroundColor Green
 
 # 5. Réglages VSCode
-Save-File "$env:APPDATA\Code\User\settings.json" "vscode-settings.json"
+Save -sourcePath "$env:APPDATA\Code\User\settings.json" -relativeTarget "vscode-settings.json"
 Write-Host "✅ Réglages VSCode copiés" -ForegroundColor Green
 
 # 6. Profil Git
-Save-File "$env:USERPROFILE\.gitconfig" ".gitconfig"
+Save -sourcePath "$env:USERPROFILE\.gitconfig" -relativeTarget ".gitconfig"
 Write-Host "✅ Fichier .gitconfig sauvegardé" -ForegroundColor Green
 
 # 7. Clés SSH
-Copy-FolderToBothWithExclusions "$env:USERPROFILE\.ssh" "ssh" @("known_hosts.old", "config.bak")
+Save -sourcePath "$env:USERPROFILE\.ssh" -relativeTarget "ssh" -excludeNames @("known_hosts.old", "config.bak")
 Write-Host "✅ Clés SSH sauvegardées (fichiers inutiles exclus)" -ForegroundColor Green
 
 # 8. Fly.io
-Copy-FolderToBothWithExclusions "$env:USERPROFILE\.fly" "fly" @("bin", "flyctl.exe", "flyctl", "wintun.dll")
+Save -sourcePath "$env:USERPROFILE\.fly" -relativeTarget "fly" -excludeNames @("bin", "flyctl.exe", "flyctl", "wintun.dll")
 Write-Host "✅ Config Fly.io sauvegardée (sans le dossier bin ni les exécutables)" -ForegroundColor Green
 
 # 9. Dossier .config (avec exclusions)
-Copy-FolderToBothWithExclusions "$env:USERPROFILE\.config" "config" @("__pycache__", "cache", "temp")
+Save -sourcePath "$env:USERPROFILE\.config" -relativeTarget "config" -excludeNames @("__pycache__", "cache", "temp")
 Write-Host "✅ Dossier .config sauvegardé (exclusions appliquées)" -ForegroundColor Green
 
 # 10. Fichiers .env (renommés par projet)

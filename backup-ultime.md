@@ -31,6 +31,7 @@ Chaque exécution crée deux dossiers :
 
 ## 📁 Structure du dossier de backup
 
+```bash
 backup/
 ├── backup-YYYY-MM-DD/         # Version horodatée du backup
 │   ├── packages-choco.config  # Paquets Chocolatey
@@ -47,6 +48,9 @@ backup/
 │       └── site-web.env
 ├── backup-latest/             # Copie du dernier backup (pour restauration rapide)
 │   └── (identique à backup-YYYY-MM-DD)
+
+```
+
 ---
 
 ## 🚀 Utilisation

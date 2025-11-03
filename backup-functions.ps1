@@ -50,48 +50,30 @@ function Copy-FolderWithExclusions {
 }
 
 function Save-Text {
-<#
-.SYNOPSIS
-Sauvegarde un contenu texte dans deux fichiers simultanément.
-
-.DESCRIPTION
-Écrit une chaîne de texte dans deux emplacements de sauvegarde :
-- Un dossier horodaté (`$global:backupTimestamped`)
-- Un dossier "latest" (`$global:backupLatest`)
-
-Ce mécanisme permet de conserver une version historique et une version toujours à jour.
-
-.PARAMETER content
-Le contenu texte à sauvegarder (chaîne de caractères).
-
-.PARAMETER filename
-Le nom du fichier à créer dans les deux dossiers de sauvegarde.
-
-.EXAMPLE
-$pipList = pip freeze | Out-String
-Save-Text $pipList "requirements.txt"
-
-.NOTES
-Nécessite que les variables globales $global:backupTimestamped et $global:backupLatest soient initialisées.
-#>
-
   param (
-    [string]$content,
-    [string]$filename
+    [string]$Text,
+    [string]$RelativeTarget
   )
 
-  $file1 = Join-Path $global:backupTimestamped $filename
-  $file2 = Join-Path $global:backupLatest $filename
+  $target1 = Join-Path $global:backupTimestamped $RelativeTarget
+  $target2 = Join-Path $global:backupLatest $RelativeTarget
 
-  $content | Tee-Object -FilePath $file1 -Encoding UTF8 | Out-File -FilePath $file2 -Encoding UTF8
+  foreach ($target in @($target1, $target2)) {
+    $parentDir = Split-Path $target -Parent
+    if (!(Test-Path $parentDir)) {
+      New-Item -ItemType Directory -Path $parentDir -Force | Out-Null
+    }
 
-  Write-Host "✅ Contenu sauvegardé : $filename" -ForegroundColor Green
+    $Text | Out-File -FilePath $target -Encoding UTF8
+  }
+
+  Write-Host "✅ Contenu sauvegardé : $RelativeTarget" -ForegroundColor Green
 }
 
-function Save-File {
+function Save-Item {
 <#
 .SYNOPSIS
-Copie un fichier ou dossier vers les deux emplacements de sauvegarde.
+Sauvegarde un fichier ou dossier vers deux emplacements : horodaté et latest.
 
 .DESCRIPTION
 Copie un fichier ou un dossier existant dans :
@@ -105,7 +87,7 @@ Chemin du fichier ou dossier à copier.
 Nom du fichier ou dossier cible (relatif).
 
 .EXAMPLE
-Save-File "C:\data\notes.txt" "notes.txt"
+Save-Item "C:\data\notes.txt" "notes.txt"
 
 .NOTES
 Nécessite que les variables globales $global:backupTimestamped et $global:backupLatest soient initialisées.
@@ -137,37 +119,106 @@ Nécessite que les variables globales $global:backupTimestamped et $global:backu
     }
   }
 
-  Write-Host "✅ Fichier sauvegardé : $relativeTarget" -ForegroundColor Green
+  Write-Host "✅ Sauvegarde : $relativeTarget" -ForegroundColor Green
 }
 
 
-function Copy-FolderToBothWithExclusions {
-  <#
-    .SYNOPSIS
-    Copie un dossier vers les deux dossiers de backup, en excluant certains fichiers ou sous-dossiers.
+function Save-ItemWithExclusions {
+<#
+.SYNOPSIS
+Sauvegarde un dossier vers deux emplacements en excluant certains fichiers ou sous-dossiers.
 
-    .PARAMETER source
-    Chemin du dossier source à copier.
+.DESCRIPTION
+Copie un dossier existant dans :
+- Un dossier horodaté (`$global:backupTimestamped`)
+- Un dossier "latest" (`$global:backupLatest`)
+En excluant les fichiers ou dossiers spécifiés.
 
-    .PARAMETER targetName
-    Nom du dossier cible dans les backups.
+.PARAMETER sourcePath
+Chemin du dossier source.
 
-    .PARAMETER excludeNames
-    Liste des noms à exclure (fichiers ou dossiers).
+.PARAMETER relativeTarget
+Chemin relatif de destination.
 
-    .EXAMPLE
-    Copy-FolderToBothWithExclusions "$env:USERPROFILE\.ssh" "ssh" @("known_hosts.old", "config.bak")
-  #>
+.PARAMETER excludeNames
+Liste des noms ou extensions à exclure.
+
+.EXAMPLE
+Save-ItemWithExclusions "$env:USERPROFILE\.ssh" "ssh" @("known_hosts.old", "config.bak")
+#>
 
   param (
-    [string]$source,
-    [string]$targetName,
-    [string[]]$excludeNames
+    [string]$sourcePath,
+    [string]$relativeTarget,
+    [string[]]$excludeNames = @()
   )
 
-  foreach ($dest in @($global:backupTimestamped, $global:backupLatest)) {
-    $target = Join-Path $dest $targetName
-    Copy-FolderWithExclusions -Source $source -Destination $target -ExcludeNames $excludeNames
+  if (!(Test-Path $sourcePath -PathType Container)) {
+    Write-Host "⚠️ Dossier source introuvable : $sourcePath" -ForegroundColor Yellow
+    return
+  }
+
+  $target1 = Join-Path $global:backupTimestamped $relativeTarget
+  $target2 = Join-Path $global:backupLatest $relativeTarget
+
+  foreach ($target in @($target1, $target2)) {
+    $parentDir = Split-Path $target -Parent
+    if (!(Test-Path $parentDir)) {
+      New-Item -ItemType Directory -Path $parentDir -Force | Out-Null
+    }
+
+    Copy-FolderWithExclusions -Source $sourcePath -Destination $target -ExcludeNames $excludeNames
+  }
+
+  Write-Host "✅ Sauvegarde avec exclusions : $relativeTarget" -ForegroundColor Green
+}
+
+function Save {
+<#
+.SYNOPSIS
+Sauvegarde un fichier, un dossier ou un texte vers les emplacements de backup.
+
+.DESCRIPTION
+Fonction générique qui délègue à :
+- Save-Item (fichier ou dossier)
+- Save-ItemWithExclusions (dossier avec exclusions)
+- Save-Text (contenu texte)
+
+.PARAMETER sourcePath
+Chemin du fichier ou dossier à sauvegarder.
+
+.PARAMETER relativeTarget
+Chemin relatif dans les dossiers de backup.
+
+.PARAMETER excludeNames
+Liste des noms ou extensions à exclure (pour les dossiers).
+
+.PARAMETER textContent
+Texte à sauvegarder (si fourni, sourcePath est ignoré).
+
+.EXAMPLE
+Save -sourcePath "$env:USERPROFILE\.ssh" -relativeTarget "ssh" -excludeNames @("known_hosts.old")
+
+.EXAMPLE
+Save -textContent "Hello world" -relativeTarget "notes\hello.txt"
+#>
+
+  param (
+    [string]$sourcePath,
+    [string]$relativeTarget,
+    [string[]]$excludeNames = @(),
+    [string]$textContent = $null
+  )
+
+  if ($textContent) {
+    Save-Text -Text $textContent -RelativeTarget $relativeTarget
+    return
+  }
+
+  if ($excludeNames.Count -gt 0) {
+    Save-ItemWithExclusions -sourcePath $sourcePath -relativeTarget $relativeTarget -excludeNames $excludeNames
+  } else {
+    Save-Item -sourcePath $sourcePath -relativeTarget $relativeTarget
   }
 }
 
