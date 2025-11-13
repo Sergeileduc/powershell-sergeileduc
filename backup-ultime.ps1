@@ -108,17 +108,29 @@ if (Test-Path $latest) {
 }
 New-Item -ItemType Directory -Path $latest | Out-Null
 
+# 11. 🚚 Déplacement du staging vers le dossier horodaté (y compris fichiers cachés)
 Write-Host "🚚 Déplacement du staging vers le dossier horodaté..."
-Move-Item -Path "$staging\*" -Destination $target
+Copy-Item -Path "$staging\*" -Destination $target -Recurse -Force
+Remove-Item -Path "$staging\*" -Recurse -Force
 
+# 12. 📋 Copie vers le dossier latest (y compris fichiers cachés)
 Write-Host "📋 Copie vers le dossier latest..."
-Copy-Item -Path "$target\*" -Destination $latest -Recurse
+Copy-Item -Path "$target\*" -Destination $latest -Recurse -Force
 
+# 13. 📊 Résumé de la sauvegarde
+$filesCount = (Get-ChildItem $target -Recurse -File -Force).Count
+Write-Host "📊 $filesCount fichiers sauvegardés dans $target" -ForegroundColor Cyan
 Write-Host "✅ Sauvegarde complète terminée dans :"
 Write-Host "   - $target"
 Write-Host "   - $latest"
 
+# 14. 🧹 Suppression du dossier de staging
+Write-Host "🧹 Suppression du dossier de staging..."
+Remove-Item -Path $staging -Recurse -Force
 
-# 🎉 Fin
-Write-Host "`n🎉 Sauvegarde complète terminée dans : $backupTimestamped" -ForegroundColor Cyan
-Write-Host "📌 Dernier backup accessible via : $backupLatest" -ForegroundColor Cyan
+# 15. 🎉 Fin du script
+if ($filesCount -eq 0) {
+    Write-Host "⚠️ Aucun fichier sauvegardé — vérifie tes exclusions ou ton dossier source." -ForegroundColor Red
+} else {
+    Write-Host "🎉 Sauvegarde complète terminée avec succès !" -ForegroundColor Green
+}
