@@ -18,21 +18,25 @@ $oneDriveDocs = Join-Path "$env:USERPROFILE\OneDrive\Documents" "Scripts\Powersh
 # Importe les fonctions
 . (Join-Path $oneDriveDocs "backup-functions.ps1")
 
-# Timestamp du jour
-$timestamp = Get-Date -Format "yyyy-MM-dd"
-# Autres variables
-# Racine du dossier de backup
-$root = Join-Path "$env:USERPROFILE\OneDrive\Documents" "AAA-important\geek\backup"
-# Dossiers de destination
-$global:backupTimestamped = Join-Path $root "backup-$timestamp"
-$global:backupLatest = Join-Path $root "backup-latest"
 
-# Crée les deux dossiers
-foreach ($path in @($global:backupTimestamped, $global:backupLatest)) {
-  if (!(Test-Path $path)) {
-    New-Item -ItemType Directory -Path $path -Force | Out-Null
-  }
+# Dossier temporaire local
+$staging = "$env:USERPROFILE\TempBackupStaging"
+if (Test-Path $staging) {
+    Write-Host "🧹 Suppression du dossier temporaire existant..."
+    Remove-Item $staging -Recurse -Force
 }
+Write-Host "📁 Création du dossier temporaire : $staging"
+New-Item -ItemType Directory -Path $staging | Out-Null
+
+# Rediriger les fonctions Save vers le staging
+<# En fait, nos fonctions utilisent des variables globales pour les chemins de backup.
+Donc, on définit ces variables globales pour pointer vers le staging temporaire.
+Normalement, dans backup-functions.ps1, ces variables seraient définies pour pointer vers le dossier OneDrive.
+Mais comme ça merde, bah tant pis, on passe par staging.
+Et on fera un move final du staging vers OneDrive à la fin du script.
+#>
+$global:backupTimestamped = $staging
+$global:backupLatest = $staging
 
 # 1. Chocolatey
 $tempChocoExport = Join-Path $env:TEMP "packages-choco.config"
@@ -75,7 +79,10 @@ Save -sourcePath "$env:USERPROFILE\.ssh" -relativeTarget "ssh" -excludeNames @("
 Write-Host "✅ Clés SSH sauvegardées (fichiers inutiles exclus)" -ForegroundColor Green
 
 # 8. Fly.io
-Save -sourcePath "$env:USERPROFILE\.fly" -relativeTarget "fly" -excludeNames @("bin", "flyctl.exe", "flyctl", "wintun.dll")
+Save -sourcePath "$env:USERPROFILE\.fly" -relativeTarget "fly" -excludeNames @(
+    "bin", "flyctl.exe", "flyctl", "wintun.dll", "fly.exe", "fly.exe.old", "fly-agent.sock"
+)
+
 Write-Host "✅ Config Fly.io sauvegardée (sans le dossier bin ni les exécutables)" -ForegroundColor Green
 
 # 9. Dossier .config (avec exclusions)
@@ -84,6 +91,33 @@ Write-Host "✅ Dossier .config sauvegardé (exclusions appliquées)" -Foregroun
 
 # 10. Fichiers .env (renommés par projet)
 Copy-EnvFilesToBoth
+
+
+# Dossiers finaux dans OneDrive
+$root = Join-Path "$env:USERPROFILE\OneDrive\Documents" "AAA-important\geek\backup"
+$timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm"
+$target = Join-Path $root $timestamp
+$latest = Join-Path $root "latest"
+
+Write-Host "📁 Création du dossier horodaté : $target"
+New-Item -ItemType Directory -Path $target -Force | Out-Null
+
+Write-Host "📁 Mise à jour du dossier latest : $latest"
+if (Test-Path $latest) {
+    Remove-Item $latest -Recurse -Force
+}
+New-Item -ItemType Directory -Path $latest | Out-Null
+
+Write-Host "🚚 Déplacement du staging vers le dossier horodaté..."
+Move-Item -Path "$staging\*" -Destination $target
+
+Write-Host "📋 Copie vers le dossier latest..."
+Copy-Item -Path "$target\*" -Destination $latest -Recurse
+
+Write-Host "✅ Sauvegarde complète terminée dans :"
+Write-Host "   - $target"
+Write-Host "   - $latest"
+
 
 # 🎉 Fin
 Write-Host "`n🎉 Sauvegarde complète terminée dans : $backupTimestamped" -ForegroundColor Cyan
