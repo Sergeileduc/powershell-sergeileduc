@@ -277,6 +277,6 @@ function Backup-GameSaves {
         $expandedPath = [Environment]::ExpandEnvironmentVariables($rawPath)
 
         Write-Host "🎮 Sauvegarde de '$gameName' depuis '$expandedPath'..."
-        Save-Item $expandedPath "saves\$gameName"
+        Save -sourcePath $expandedPath -relativeTarget "saves\$gameName"
     }
 }
