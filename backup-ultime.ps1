@@ -16,7 +16,7 @@
 # Chemin vers le dossier OneDrive Documents
 $oneDriveDocs = Join-Path "$env:USERPROFILE\OneDrive\Documents" "Scripts\Powershell"
 # Importe les fonctions
-. (Join-Path $oneDriveDocs "backup-functions.ps1")
+Import-Module (Join-Path $oneDriveDocs "backup-functions.psm1")
 
 
 # Dossier temporaire local
