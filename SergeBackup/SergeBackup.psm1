@@ -1,3 +1,6 @@
+Import-Module powershell-yaml
+
+
 function Copy-FolderWithExclusions {
   # Copie un dossier source vers une destination en excluant certains fichiers ou dossiers.
   # - Source : chemin complet du dossier source à copier.
@@ -262,15 +265,15 @@ function Backup-GameSaves {
     }
 
     try {
-        $gameSaves = Get-Content $configPath -Raw | ConvertFrom-Json
+        $gameSaves = Get-Content $configPath -Raw | ConvertFrom-Yaml
     } catch {
         Write-Host "❌ Erreur de lecture du fichier JSON : $($_.Exception.Message)" -ForegroundColor Red
         return
     }
 
-    $gameSaves.PSObject.Properties | ForEach-Object {
-        $gameName = $_.Name
-        $rawPath = $_.Value
+    foreach ($game in $gameSaves.GetEnumerator()) {
+        $gameName = $game.Key
+        $rawPath = $game.Value
         $expandedPath = [Environment]::ExpandEnvironmentVariables($rawPath)
 
         Write-Host "🎮 Sauvegarde de '$gameName' depuis '$expandedPath'..."
