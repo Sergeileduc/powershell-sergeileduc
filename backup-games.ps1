@@ -3,6 +3,16 @@ $oneDriveDocs = Join-Path "$env:USERPROFILE\OneDrive\Documents" "Scripts\Powersh
 # Importe les fonctions
 Import-Module (Join-Path $oneDriveDocs "SergeBackup")
 
+# Dossier temporaire local
+# c'est un peu du bricolage
+$staging = "$env:USERPROFILE\TempBackupStaging"
+if (Test-Path $staging) {
+    Write-Host "🧹 Suppression du dossier temporaire existant..."
+    Remove-Item $staging -Recurse -Force
+}
+Write-Host "📁 Création du dossier temporaire : $staging"
+New-Item -ItemType Directory -Path $staging | Out-Null
+
 # Timestamp du jour
 $timestamp = Get-Date -Format "yyyy-MM-dd"
 $root = Join-Path "$env:USERPROFILE\OneDrive\Documents" "AAA-important\geek\backup"
@@ -17,7 +27,7 @@ foreach ($path in @($global:backupTimestamped, $global:backupLatest)) {
 }
 
 # Sauvegarde des jeux
-$gameConfig = "$oneDriveDocs\game-saves.json"
+$gameConfig = "$oneDriveDocs\game-saves.yaml"
 Backup-GameSaves -configPath $gameConfig
 
 

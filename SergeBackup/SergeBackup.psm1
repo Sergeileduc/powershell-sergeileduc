@@ -262,7 +262,7 @@ function Backup-GameSaves {
     }
 
     try {
-        $gameSaves = Get-Content $configPath -Raw | ConvertFrom-Json
+        $gameSaves = Get-Content $configPath -Raw | ConvertFrom-Yaml
     } catch {
         Write-Host "❌ Erreur de lecture du fichier JSON : $($_.Exception.Message)" -ForegroundColor Red
         return
