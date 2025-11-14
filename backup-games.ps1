@@ -1,13 +1,7 @@
-# Chemin vers le fichier de fonctions gaming
-$gamingFunctions = "$env:USERPROFILE\OneDrive\Documents\Scripts\Powershell\backup-games-functions.ps1"
-
-# Charge les fonctions gaming
-if (Test-Path $gamingFunctions) {
-    . $gamingFunctions
-} else {
-    Write-Host "❌ Fichier de fonctions introuvable : $gamingFunctions" -ForegroundColor Red
-    exit 1
-}
+# Chemin vers le dossier OneDrive Documents
+$oneDriveDocs = Join-Path "$env:USERPROFILE\OneDrive\Documents" "Scripts\Powershell"
+# Importe les fonctions
+Import-Module (Join-Path $oneDriveDocs "SergeBackup")
 
 # Timestamp du jour
 $timestamp = Get-Date -Format "yyyy-MM-dd"
@@ -23,6 +17,8 @@ foreach ($path in @($global:backupTimestamped, $global:backupLatest)) {
 }
 
 # Sauvegarde des jeux
-Backup-GameSaves
+$gameConfig = "$oneDriveDocs\game-saves.json"
+Backup-GameSaves -configPath $gameConfig
+
 
 Write-Host "`n🎮 Sauvegarde des jeux terminée dans : $backupTimestamped" -ForegroundColor Cyan

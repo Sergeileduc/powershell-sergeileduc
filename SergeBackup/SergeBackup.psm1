@@ -249,3 +249,31 @@ function Copy-EnvFilesToBoth {
     }
   }
 }
+
+
+function Backup-GameSaves {
+    param (
+        [string]$configPath
+    )
+
+    if (!(Test-Path $configPath)) {
+        Write-Host "❌ Fichier de config introuvable : $configPath" -ForegroundColor Red
+        return
+    }
+
+    try {
+        $gameSaves = Get-Content $configPath -Raw | ConvertFrom-Json
+    } catch {
+        Write-Host "❌ Erreur de lecture du fichier JSON : $($_.Exception.Message)" -ForegroundColor Red
+        return
+    }
+
+    $gameSaves.PSObject.Properties | ForEach-Object {
+        $gameName = $_.Name
+        $rawPath = $_.Value
+        $expandedPath = [Environment]::ExpandEnvironmentVariables($rawPath)
+
+        Write-Host "🎮 Sauvegarde de '$gameName' depuis '$expandedPath'..."
+        Save-Item $expandedPath "saves\$gameName"
+    }
+}
