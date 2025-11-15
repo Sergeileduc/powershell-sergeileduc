@@ -316,8 +316,34 @@ function Copy-EnvFiles {
 
 
 function Backup-GameSaves {
+    <#
+    .SYNOPSIS
+        Sauvegarde les fichiers de sauvegarde de jeux vidéo selon une configuration YAML.
+
+    .DESCRIPTION
+        Cette fonction lit un fichier YAML contenant une liste de jeux et leurs chemins de sauvegarde.
+        Pour chaque jeu, elle étend les variables d’environnement dans le chemin, construit un chemin
+        de destination explicite dans le dossier de staging, puis appelle la fonction `Save` pour effectuer la copie.
+
+    .PARAMETER configPath
+        Chemin vers le fichier YAML de configuration des jeux à sauvegarder.
+
+    .PARAMETER stagingRoot
+        Dossier racine de staging où les sauvegardes seront enregistrées.
+
+    .EXAMPLE
+        $staging = Init-StagingFolder -folderName "games" -customPath "$env:USERPROFILE\TempBackupStaging"
+        Backup-GameSaves -configPath "$PSScriptRoot\games-backup.yaml" -stagingRoot $staging
+
+    .NOTES
+        Le fichier YAML doit être une map simple : nom du jeu → chemin source.
+        Exemple :
+            Skyrim: "%USERPROFILE%\Documents\My Games\Skyrim\Saves"
+            Stardew: "%APPDATA%\StardewValley\Saves"
+    #>
     param (
-        [string]$configPath
+        [string]$configPath,
+        [string]$stagingRoot
     )
 
     if (!(Test-Path $configPath)) {
@@ -328,7 +354,7 @@ function Backup-GameSaves {
     try {
         $gameSaves = Get-Content $configPath -Raw | ConvertFrom-Yaml
     } catch {
-        Write-Host "❌ Erreur de lecture du fichier JSON : $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "❌ Erreur de lecture du fichier YAML : $($_.Exception.Message)" -ForegroundColor Red
         return
     }
 
@@ -336,9 +362,10 @@ function Backup-GameSaves {
         $gameName = $game.Key
         $rawPath = $game.Value
         $expandedPath = [Environment]::ExpandEnvironmentVariables($rawPath)
+        $targetPath = Join-Path $stagingRoot "saves\$gameName"
 
         Write-Host "🎮 Sauvegarde de '$gameName' depuis '$expandedPath'..."
-        Save -sourcePath $expandedPath -relativeTarget "saves\$gameName"
+        Save -sourcePath $expandedPath -targetPath $targetPath
     }
 }
 
@@ -353,7 +380,7 @@ function Init-StagingFolder {
     Par défaut, le dossier est créé dans $env:TEMP, mais un chemin personnalisé peut être fourni.
 
     .PARAMETER folderName
-    Nom du sous-dossier à créer. Par défaut : "SergeBackupStaging".
+    Nom du sous-dossier à créer. Par défaut : "MyBackupStaging".
 
     .PARAMETER customPath
     Chemin racine personnalisé. Si non fourni, $env:TEMP est utilisé.

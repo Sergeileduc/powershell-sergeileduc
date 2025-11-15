@@ -108,9 +108,9 @@ Write-Host "✅ Sauvegarde complète terminée dans :"
 Write-Host "   - $target"
 Write-Host "   - $latest"
 
-# # 14. 🧹 Suppression du dossier de staging
-# Write-Host "🧹 Suppression du dossier de staging..."
-# Remove-Item -Path $staging -Recurse -Force
+# 14. 🧹 Suppression du dossier de staging
+Write-Host "🧹 Suppression du dossier de staging..."
+Remove-Item -Path $staging -Recurse -Force
 
 # 15. 🎉 Fin du script
 if ($filesCount -eq 0) {
