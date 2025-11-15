@@ -59,7 +59,7 @@ backup/
 2. Exécute le script :
 
    ```powershell
-   .\backup-ultime.ps1
+   .\backup-perso.ps1
    ```
 
 Le dossier de backup est créé dans :
