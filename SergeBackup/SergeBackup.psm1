@@ -1,57 +1,6 @@
 Import-Module powershell-yaml
 
 
-function Copy-FolderWithExclusions {
-  # Copie un dossier source vers une destination en excluant certains fichiers ou dossiers.
-  # - Source : chemin complet du dossier source à copier.
-  # - Destination : chemin complet du dossier de destination.
-  # - ExcludeNames : tableau de noms à exclure (fichiers ou dossiers).
-  # Les exclusions sont insensibles à la casse et peuvent viser des noms, chemins ou extensions.
-
-  param (
-    [string]$Source,
-    [string]$Destination,
-    [string[]]$ExcludeNames
-  )
-
-  # Crée le dossier de destination s’il n’existe pas
-  if (!(Test-Path $Destination)) {
-    New-Item -ItemType Directory -Path $Destination -Force | Out-Null
-  }
-
-  # Récupère tous les éléments du dossier source
-  $items = Get-ChildItem -Path $Source -Recurse
-
-  foreach ($item in $items) {
-    $exclude = $false
-
-    # Vérifie si l’élément doit être exclu
-    foreach ($excl in $ExcludeNames) {
-      if (
-        $item.Name -ieq $excl -or
-        $item.FullName -like "*\$excl" -or
-        $item.FullName -like "*\$excl\*" -or
-        $item.FullName -like "*\$excl.*"
-      ) {
-        $exclude = $true
-        break
-      }
-    }
-
-    # Si non exclu, copie l’élément
-    if (-not $exclude) {
-      $target = $item.FullName.Replace($Source, $Destination)
-      if ($item.PSIsContainer) {
-        if (!(Test-Path $target)) {
-          New-Item -ItemType Directory -Path $target -Force | Out-Null
-        }
-      } else {
-        Copy-Item $item.FullName -Destination $target -Force
-      }
-    }
-  }
-}
-
 function Save-Text {
     <#
     .SYNOPSIS
@@ -93,7 +42,7 @@ function Save-Text {
     try {
         $content | Out-File -FilePath $targetPath -Encoding UTF8
     } catch {
-        Write-Error "💥 Échec de l’écriture dans '$targetPath' : $_"
+        Write-Error "💥 Échec de l'écriture dans '$targetPath' : $_"
     }
 }
 
@@ -190,8 +139,15 @@ function Save-ItemWithExclusions {
 
     $items = Get-ChildItem -Path $sourcePath -Recurse
 
+    # Exclusion magique : ignore l'élément si son nom ou son chemin correspond à une règle d'exclusion.
+    # Gère les cas où les fichiers sont dans des sous-dossiers (genre "bin/flyctl.exe").
     foreach ($item in $items) {
-        if ($exclusions -contains $item.Name) {
+        if ($exclusions | Where-Object { 
+            $_ -ieq $item.Name -or 
+            $item.FullName -like "*\$_" -or 
+            $item.FullName -like "*\$_\*" -or 
+            $item.FullName -like "*\$_.*"
+        }) {
             continue
         }
 
@@ -283,41 +239,95 @@ function Save {
 }
 
 
+<#
+.SYNOPSIS
+Copie tous les fichiers .env* depuis un dossier source vers un dossier cible, en conservant la structure relative.
+
+.DESCRIPTION
+Parcourt récursivement le dossier source à la recherche de fichiers `.env*` (ex: `.env`, `.env.local`, etc.).
+Chaque fichier trouvé est copié dans le dossier cible, en respectant sa structure relative d'origine.
+Si `-DryRun` est activé, affiche les chemins sans effectuer la copie.
+
+.PARAMETER targetPath
+Chemin de destination où les fichiers seront copiés.
+
+.PARAMETER sourcePath
+Chemin source à parcourir. Par défaut : dossier courant.
+
+.PARAMETER DryRun
+Affiche les fichiers qui seraient copiés, sans effectuer d'action.
+
+.EXAMPLE
+Copy-EnvFiles -targetPath "D:\Backups\env" -sourcePath "$env:USERPROFILE\Dev"
+
+.EXAMPLE
+Copy-EnvFiles -targetPath "D:\Backups\env" -sourcePath "$env:USERPROFILE\Dev" -DryRun
+
+.NOTES
+- Crée les dossiers intermédiaires si nécessaire.
+- Écrase les fichiers existants dans le dossier cible, sauf en mode DryRun.
+#>
 function Copy-EnvFiles {
-    <#
-    .SYNOPSIS
-    Sauvegarde les fichiers .env renommés par projet dans un dossier cible.
-
-    .DESCRIPTION
-    Cette fonction parcourt les fichiers .env présents dans le dossier courant (ou un dossier spécifique),
-    et les copie vers un dossier de sauvegarde en les renommant selon leur projet.
-
-    .PARAMETER targetFolder
-    Dossier de destination dans lequel les fichiers .env seront copiés.
-
-    .EXAMPLE
-    Copy-EnvFiles -targetFolder "backup\env"
-    #>
-
+    [CmdletBinding()]
     param (
-        [Parameter(Mandatory = $true)]
-        [string]$targetFolder
+        [string]$targetPath,
+        [string]$sourcePath = (Get-Location).Path,
+        [switch]$DryRun
     )
 
-    $envFiles = Get-ChildItem -Path . -Filter "*.env.*" -File
+    if (-not (Test-Path -Path $targetPath) -and -not $DryRun) {
+        New-Item -Path $targetPath -ItemType Directory | Out-Null
+    }
 
-    foreach ($file in $envFiles) {
-        $projectName = $file.Name -replace "^\.env\.", ""
-        $targetPath = Join-Path $targetFolder "$projectName.env"
+    $dotenvFiles = Get-ChildItem -Path $sourcePath -Filter "*.env*" -Recurse -File -ErrorAction SilentlyContinue
 
-        Save -sourcePath $file.FullName -targetPath $targetPath
+    foreach ($file in $dotenvFiles) {
+        $relativePath = $file.FullName.Substring($sourcePath.Length).TrimStart("\")
+        $destination = Join-Path -Path $targetPath -ChildPath $relativePath
+
+        if ($DryRun) {
+            Write-Host "[DryRun] $($file.FullName) → $destination"
+        } else {
+            $destinationFolder = Split-Path -Path $destination -Parent
+            if (-not (Test-Path -Path $destinationFolder)) {
+                New-Item -Path $destinationFolder -ItemType Directory -Force | Out-Null
+            }
+
+            Copy-Item -Path $file.FullName -Destination $destination -Force
+        }
     }
 }
 
 
 function Backup-GameSaves {
+    <#
+    .SYNOPSIS
+        Sauvegarde les fichiers de sauvegarde de jeux vidéo selon une configuration YAML.
+
+    .DESCRIPTION
+        Cette fonction lit un fichier YAML contenant une liste de jeux et leurs chemins de sauvegarde.
+        Pour chaque jeu, elle étend les variables d’environnement dans le chemin, construit un chemin
+        de destination explicite dans le dossier de staging, puis appelle la fonction `Save` pour effectuer la copie.
+
+    .PARAMETER configPath
+        Chemin vers le fichier YAML de configuration des jeux à sauvegarder.
+
+    .PARAMETER stagingRoot
+        Dossier racine de staging où les sauvegardes seront enregistrées.
+
+    .EXAMPLE
+        $staging = Init-StagingFolder -folderName "games" -customPath "$env:USERPROFILE\TempBackupStaging"
+        Backup-GameSaves -configPath "$PSScriptRoot\games-backup.yaml" -stagingRoot $staging
+
+    .NOTES
+        Le fichier YAML doit être une map simple : nom du jeu → chemin source.
+        Exemple :
+            Skyrim: "%USERPROFILE%\Documents\My Games\Skyrim\Saves"
+            Stardew: "%APPDATA%\StardewValley\Saves"
+    #>
     param (
-        [string]$configPath
+        [string]$configPath,
+        [string]$stagingRoot
     )
 
     if (!(Test-Path $configPath)) {
@@ -328,7 +338,7 @@ function Backup-GameSaves {
     try {
         $gameSaves = Get-Content $configPath -Raw | ConvertFrom-Yaml
     } catch {
-        Write-Host "❌ Erreur de lecture du fichier JSON : $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "❌ Erreur de lecture du fichier YAML : $($_.Exception.Message)" -ForegroundColor Red
         return
     }
 
@@ -336,12 +346,65 @@ function Backup-GameSaves {
         $gameName = $game.Key
         $rawPath = $game.Value
         $expandedPath = [Environment]::ExpandEnvironmentVariables($rawPath)
+        $targetPath = Join-Path $stagingRoot "saves\$gameName"
 
         Write-Host "🎮 Sauvegarde de '$gameName' depuis '$expandedPath'..."
-        Save -sourcePath $expandedPath -relativeTarget "saves\$gameName"
+        Save -sourcePath $expandedPath -targetPath $targetPath
     }
 }
 
+function Init-BackupFolder {
+    <#
+    .SYNOPSIS
+    Initialise un dossier de sauvegarde, avec nom personnalisé et emplacement optionnel.
+
+    .DESCRIPTION
+    Crée un dossier nommé `$folderName` dans `$env:USERPROFILE` ou dans un chemin personnalisé (`$customPath`).
+    Si le paramètre `-CleanOnly` est activé, le dossier est supprimé s’il existe, puis recréé.
+
+    .EXAMPLE
+    $backupFolder = Init-BackupFolder -folderName "MyBackup" -customPath "D:\Backups"
+    Write-Host "Dossier de sauvegarde : $backupFolder"
+
+    .EXAMPLE
+    Init-BackupFolder -CleanOnly
+
+    .NOTES
+    - Le nom par défaut est "MyBackupPerso"
+    - Le dossier est créé s’il n’existe pas, ou recréé si `-CleanOnly` est utilisé
+    - Retourne le chemin complet du dossier
+    #>
+    [CmdletBinding()]
+    param (
+        [string]$folderName = "MyBackupPerso",
+        [string]$customPath,
+        [switch]$CleanOnly
+    )
+
+    $basePath = if ($customPath) { $customPath } else { $env:USERPROFILE }
+    $backupFolder = Join-Path -Path $basePath -ChildPath $folderName
+
+    if ($CleanOnly -and (Test-Path -Path $backupFolder)) {
+        Remove-Item -Path $backupFolder -Recurse -Force
+    }
+
+    if (-not (Test-Path -Path $backupFolder)) {
+        New-Item -Path $backupFolder -ItemType Directory | Out-Null
+    }
+
+    return $backupFolder
+}
+
+
+# ============================================
+# =============== LEGACY =====================
+# ============================================
+# Fonctions conservées pour compatibilité ou référence.
+# Ne sont plus utilisées dans le flux principal.
+
+# .NOTES
+# - Cette fonction est conservée à titre de référence.
+# - Remplacée par Init-BackupFolder dans le flux principal.
 
 function Init-StagingFolder {
     <#
@@ -353,7 +416,7 @@ function Init-StagingFolder {
     Par défaut, le dossier est créé dans $env:TEMP, mais un chemin personnalisé peut être fourni.
 
     .PARAMETER folderName
-    Nom du sous-dossier à créer. Par défaut : "SergeBackupStaging".
+    Nom du sous-dossier à créer. Par défaut : "MyBackupStaging".
 
     .PARAMETER customPath
     Chemin racine personnalisé. Si non fourni, $env:TEMP est utilisé.
@@ -400,4 +463,56 @@ function Init-StagingFolder {
     New-Item -ItemType Directory -Path $staging | Out-Null
 
     return $staging
+}
+
+
+function Copy-FolderWithExclusions {
+  # Copie un dossier source vers une destination en excluant certains fichiers ou dossiers.
+  # - Source : chemin complet du dossier source à copier.
+  # - Destination : chemin complet du dossier de destination.
+  # - ExcludeNames : tableau de noms à exclure (fichiers ou dossiers).
+  # Les exclusions sont insensibles à la casse et peuvent viser des noms, chemins ou extensions.
+
+  param (
+    [string]$Source,
+    [string]$Destination,
+    [string[]]$ExcludeNames
+  )
+
+  # Crée le dossier de destination s’il n’existe pas
+  if (!(Test-Path $Destination)) {
+    New-Item -ItemType Directory -Path $Destination -Force | Out-Null
+  }
+
+  # Récupère tous les éléments du dossier source
+  $items = Get-ChildItem -Path $Source -Recurse
+
+  foreach ($item in $items) {
+    $exclude = $false
+
+    # Vérifie si l’élément doit être exclu
+    foreach ($excl in $ExcludeNames) {
+      if (
+        $item.Name -ieq $excl -or
+        $item.FullName -like "*\$excl" -or
+        $item.FullName -like "*\$excl\*" -or
+        $item.FullName -like "*\$excl.*"
+      ) {
+        $exclude = $true
+        break
+      }
+    }
+
+    # Si non exclu, copie l’élément
+    if (-not $exclude) {
+      $target = $item.FullName.Replace($Source, $Destination)
+      if ($item.PSIsContainer) {
+        if (!(Test-Path $target)) {
+          New-Item -ItemType Directory -Path $target -Force | Out-Null
+        }
+      } else {
+        Copy-Item $item.FullName -Destination $target -Force
+      }
+    }
+  }
 }
