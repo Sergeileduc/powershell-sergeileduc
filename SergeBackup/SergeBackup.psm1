@@ -53,204 +53,265 @@ function Copy-FolderWithExclusions {
 }
 
 function Save-Text {
-  param (
-    [string]$Text,
-    [string]$RelativeTarget
-  )
+    <#
+    .SYNOPSIS
+    Sauvegarde du contenu texte dans un fichier cible.
 
-  $target1 = Join-Path $global:backupTimestamped $RelativeTarget
-  $target2 = Join-Path $global:backupLatest $RelativeTarget
+    .DESCRIPTION
+    Cette fonction prend une chaîne de texte et l’écrit dans un fichier à l’emplacement spécifié.
+    Elle crée automatiquement le dossier parent si nécessaire, et encode le fichier en UTF-8.
 
-  foreach ($target in @($target1, $target2)) {
-    $parentDir = Split-Path $target -Parent
-    if (!(Test-Path $parentDir)) {
-      New-Item -ItemType Directory -Path $parentDir -Force | Out-Null
+    .PARAMETER content
+    Le contenu texte à sauvegarder. Peut être une chaîne simple ou multi-ligne.
+
+    .PARAMETER targetPath
+    Chemin absolu ou relatif du fichier dans lequel le contenu sera écrit.
+
+    .EXAMPLE
+    Save-Text -content "Hello world" -targetPath "backup\latest\hello.txt"
+
+    .EXAMPLE
+    Save-Text -content "choco list --local-only" -targetPath "backup\packages\choco.txt"
+
+    .NOTES
+    Le dossier parent est créé automatiquement si absent. Le fichier est écrasé s’il existe déjà.
+    #>
+
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$content,
+
+        [Parameter(Mandatory = $true)]
+        [string]$targetPath
+    )
+
+    $parent = Split-Path $targetPath -Parent
+    if (-not (Test-Path $parent)) {
+        New-Item -ItemType Directory -Path $parent -Force | Out-Null
     }
 
-    $Text | Out-File -FilePath $target -Encoding UTF8
-  }
-
-  Write-Host "✅ Contenu sauvegardé : $RelativeTarget" -ForegroundColor Green
+    try {
+        $content | Out-File -FilePath $targetPath -Encoding UTF8
+    } catch {
+        Write-Error "💥 Échec de l’écriture dans '$targetPath' : $_"
+    }
 }
 
 function Save-Item {
-<#
-.SYNOPSIS
-Sauvegarde un fichier ou dossier vers deux emplacements : horodaté et latest.
+    <#
+    .SYNOPSIS
+    Copie un fichier ou un dossier vers un chemin de destination.
 
-.DESCRIPTION
-Copie un fichier ou un dossier existant dans :
-- Un dossier horodaté (`$global:backupTimestamped`)
-- Un dossier "latest" (`$global:backupLatest`)
+    .DESCRIPTION
+    Cette fonction prend un chemin source (fichier ou dossier) et le copie vers un chemin cible.
+    Elle gère la récursivité pour les dossiers et force l'écrasement si le fichier ou dossier existe déjà.
 
-.PARAMETER sourcePath
-Chemin du fichier ou dossier à copier.
+    .PARAMETER sourcePath
+    Chemin absolu du fichier ou dossier à sauvegarder.
 
-.PARAMETER relativeTarget
-Nom du fichier ou dossier cible (relatif).
+    .PARAMETER targetPath
+    Chemin absolu ou relatif vers lequel le contenu doit être copié.
 
-.EXAMPLE
-Save-Item "C:\data\notes.txt" "notes.txt"
+    .EXAMPLE
+    Save-Item -sourcePath "C:\Users\Serge\Documents\config.json" -targetPath "backup\latest\config.json"
 
-.NOTES
-Nécessite que les variables globales $global:backupTimestamped et $global:backupLatest soient initialisées.
-#>
+    .EXAMPLE
+    Save-Item -sourcePath "C:\Users\Serge\.config" -targetPath "backup\archive\dotfiles"
 
-  param (
-    [string]$sourcePath,
-    [string]$relativeTarget
-  )
+    .NOTES
+    Ne vérifie pas si le type est fichier ou dossier — utilise Copy-Item avec -Recurse pour tout.
+    #>
 
-  if (!(Test-Path $sourcePath)) {
-    Write-Host "⚠️ Source introuvable : $sourcePath" -ForegroundColor Yellow
-    return
-  }
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$sourcePath,
 
-  $target1 = Join-Path $global:backupTimestamped $relativeTarget
-  $target2 = Join-Path $global:backupLatest $relativeTarget
+        [Parameter(Mandatory = $true)]
+        [string]$targetPath
+    )
 
-  foreach ($target in @($target1, $target2)) {
-    $parentDir = Split-Path $target -Parent
-    if (!(Test-Path $parentDir)) {
-      New-Item -ItemType Directory -Path $parentDir -Force | Out-Null
+    if (-not (Test-Path $sourcePath)) {
+        Write-Warning "❌ Source introuvable : $sourcePath"
+        return
     }
 
-    if (Test-Path $sourcePath -PathType Container) {
-      Copy-Item $sourcePath -Destination $target -Recurse -Force
-    } else {
-      Copy-Item $sourcePath -Destination $target -Force
+    try {
+        Copy-Item -Path $sourcePath -Destination $targetPath -Recurse -Force
+    } catch {
+        Write-Error "💥 Échec de la copie de '$sourcePath' vers '$targetPath' : $_"
     }
-  }
 
   Write-Host "✅ Sauvegarde : $relativeTarget" -ForegroundColor Green
 }
 
 
 function Save-ItemWithExclusions {
-<#
-.SYNOPSIS
-Sauvegarde un dossier vers deux emplacements en excluant certains fichiers ou sous-dossiers.
-
-.DESCRIPTION
-Copie un dossier existant dans :
-- Un dossier horodaté (`$global:backupTimestamped`)
-- Un dossier "latest" (`$global:backupLatest`)
-En excluant les fichiers ou dossiers spécifiés.
-
-.PARAMETER sourcePath
-Chemin du dossier source.
-
-.PARAMETER relativeTarget
-Chemin relatif de destination.
-
-.PARAMETER excludeNames
-Liste des noms ou extensions à exclure.
-
-.EXAMPLE
-Save-ItemWithExclusions "$env:USERPROFILE\.ssh" "ssh" @("known_hosts.old", "config.bak")
-#>
-
-  param (
-    [string]$sourcePath,
-    [string]$relativeTarget,
-    [string[]]$excludeNames = @()
-  )
-
-  if (!(Test-Path $sourcePath -PathType Container)) {
-    Write-Host "⚠️ Dossier source introuvable : $sourcePath" -ForegroundColor Yellow
-    return
-  }
-
-  $target1 = Join-Path $global:backupTimestamped $relativeTarget
-  $target2 = Join-Path $global:backupLatest $relativeTarget
-
-  foreach ($target in @($target1, $target2)) {
-    $parentDir = Split-Path $target -Parent
-    if (!(Test-Path $parentDir)) {
-      New-Item -ItemType Directory -Path $parentDir -Force | Out-Null
-    }
-
-    Copy-FolderWithExclusions -Source $sourcePath -Destination $target -ExcludeNames $excludeNames
-  }
-
-  Write-Host "✅ Sauvegarde avec exclusions : $relativeTarget" -ForegroundColor Green
-}
-
-function Save {
-<#
-.SYNOPSIS
-Sauvegarde un fichier, un dossier ou un texte vers les emplacements de backup.
-
-.DESCRIPTION
-Fonction générique qui délègue à :
-- Save-Item (fichier ou dossier)
-- Save-ItemWithExclusions (dossier avec exclusions)
-- Save-Text (contenu texte)
-
-.PARAMETER sourcePath
-Chemin du fichier ou dossier à sauvegarder.
-
-.PARAMETER relativeTarget
-Chemin relatif dans les dossiers de backup.
-
-.PARAMETER excludeNames
-Liste des noms ou extensions à exclure (pour les dossiers).
-
-.PARAMETER textContent
-Texte à sauvegarder (si fourni, sourcePath est ignoré).
-
-.EXAMPLE
-Save -sourcePath "$env:USERPROFILE\.ssh" -relativeTarget "ssh" -excludeNames @("known_hosts.old")
-
-.EXAMPLE
-Save -textContent "Hello world" -relativeTarget "notes\hello.txt"
-#>
-
-  param (
-    [string]$sourcePath,
-    [string]$relativeTarget,
-    [string[]]$excludeNames = @(),
-    [string]$textContent = $null
-  )
-
-  if ($textContent) {
-    Save-Text -Text $textContent -RelativeTarget $relativeTarget
-    return
-  }
-
-  if ($excludeNames.Count -gt 0) {
-    Save-ItemWithExclusions -sourcePath $sourcePath -relativeTarget $relativeTarget -excludeNames $excludeNames
-  } else {
-    Save-Item -sourcePath $sourcePath -relativeTarget $relativeTarget
-  }
-}
-
-function Copy-EnvFilesToBoth {
-  <#
+    <#
     .SYNOPSIS
-    Sauvegarde tous les fichiers .env trouvés dans le profil utilisateur,
-    en les renommant selon le dossier parent, vers les deux dossiers de backup.
+    Copie un dossier en excluant certains fichiers ou sous-dossiers.
+
+    .DESCRIPTION
+    Cette fonction copie récursivement le contenu d’un dossier source vers un dossier cible,
+    en excluant les fichiers ou dossiers dont le nom correspond à ceux spécifiés dans -exclusions.
+
+    Le dossier cible est créé automatiquement si nécessaire. Les exclusions sont basées sur le nom exact
+    (pas de wildcards ni de correspondance partielle).
+
+    .PARAMETER sourcePath
+    Chemin du dossier source à copier.
+
+    .PARAMETER targetPath
+    Chemin du dossier de destination.
+
+    .PARAMETER exclusions
+    Liste de noms de fichiers ou dossiers à exclure (exact match).
 
     .EXAMPLE
-    Copy-EnvFilesToBoth
-  #>
+    Save-ItemWithExclusions -sourcePath "$env:USERPROFILE\.ssh" -targetPath "$staging\ssh" -exclusions @("known_hosts", "config.old")
 
-  $envFiles = Get-ChildItem -Path "$env:USERPROFILE" -Filter ".env" -Recurse -ErrorAction SilentlyContinue
+    .NOTES
+    Les exclusions ne s’appliquent que sur le nom (pas le chemin complet).
+    #>
 
-  foreach ($dest in @($global:backupTimestamped, $global:backupLatest)) {
-    $envBackupDir = Join-Path $dest "env-files"
-    if (!(Test-Path $envBackupDir)) {
-      New-Item -ItemType Directory -Path $envBackupDir -Force | Out-Null
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$sourcePath,
+
+        [Parameter(Mandatory = $true)]
+        [string]$targetPath,
+
+        [string[]]$exclusions
+    )
+
+    if (-not (Test-Path $sourcePath)) {
+        Write-Warning "❌ Source introuvable : $sourcePath"
+        return
     }
+
+    $items = Get-ChildItem -Path $sourcePath -Recurse
+
+    foreach ($item in $items) {
+        if ($exclusions -contains $item.Name) {
+            continue
+        }
+
+        $relative = $item.FullName.Substring($sourcePath.Length).TrimStart("\")
+        $dest = Join-Path $targetPath $relative
+        $destParent = Split-Path $dest -Parent
+
+        if (-not (Test-Path $destParent)) {
+            New-Item -ItemType Directory -Path $destParent -Force | Out-Null
+        }
+
+        Copy-Item -Path $item.FullName -Destination $dest -Force
+    }
+}
+
+
+function Save {
+    <#
+    .SYNOPSIS
+    Sauvegarde du contenu texte ou copie d’un fichier/dossier, avec exclusions optionnelles.
+
+    .DESCRIPTION
+    Cette fonction unifie trois comportements :
+    - Si -textContent est fourni, écrit le texte dans le fichier cible.
+    - Si -sourcePath est fourni sans exclusions, copie le fichier ou dossier vers le chemin cible.
+    - Si -sourcePath et -exclusions sont fournis, délègue à Save-ItemWithExclusions pour filtrer les fichiers.
+
+    Le dossier parent est créé automatiquement si nécessaire.
+
+    .PARAMETER textContent
+    Contenu texte à écrire dans le fichier cible.
+
+    .PARAMETER sourcePath
+    Fichier ou dossier à copier.
+
+    .PARAMETER targetPath
+    Chemin absolu ou relatif du fichier ou dossier de destination.
+
+    .PARAMETER exclusions
+    Liste de noms de fichiers/dossiers à exclure (exact match).
+
+    .EXAMPLE
+    Save -textContent "Hello world" -targetPath "$staging\notes\hello.txt"
+
+    .EXAMPLE
+    Save -sourcePath "$env:USERPROFILE\.ssh" -targetPath "$staging\ssh" -exclusions @("known_hosts", "config.old")
+
+    .NOTES
+    Le paramètre -textContent a priorité sur -sourcePath.
+    #>
+
+    param (
+        [string]$textContent,
+        [string]$sourcePath,
+        [Parameter(Mandatory = $true)]
+        [string]$targetPath,
+        [string[]]$exclusions
+    )
+
+    $parent = Split-Path $targetPath -Parent
+    if (-not (Test-Path $parent)) {
+        New-Item -ItemType Directory -Path $parent -Force | Out-Null
+    }
+
+    if ($textContent) {
+        try {
+            $textContent | Out-File -FilePath $targetPath -Encoding UTF8
+        } catch {
+            Write-Error "💥 Échec de l'écriture dans '$targetPath' : $_"
+        }
+        return
+    }
+
+    if (-not $sourcePath) {
+        Write-Warning "⚠️ Aucun contenu à sauvegarder : ni -textContent ni -sourcePath n’ont été fournis."
+        return
+    }
+
+    if ($exclusions) {
+        Save-ItemWithExclusions -sourcePath $sourcePath -targetPath $targetPath -exclusions $exclusions
+    }
+    else {
+        try {
+            Copy-Item -Path $sourcePath -Destination $targetPath -Recurse -Force
+        } catch {
+            Write-Error "💥 Échec de la copie de '$sourcePath' vers '$targetPath' : $_"
+        }
+    }
+}
+
+
+function Copy-EnvFiles {
+    <#
+    .SYNOPSIS
+    Sauvegarde les fichiers .env renommés par projet dans un dossier cible.
+
+    .DESCRIPTION
+    Cette fonction parcourt les fichiers .env présents dans le dossier courant (ou un dossier spécifique),
+    et les copie vers un dossier de sauvegarde en les renommant selon leur projet.
+
+    .PARAMETER targetFolder
+    Dossier de destination dans lequel les fichiers .env seront copiés.
+
+    .EXAMPLE
+    Copy-EnvFiles -targetFolder "backup\env"
+    #>
+
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$targetFolder
+    )
+
+    $envFiles = Get-ChildItem -Path . -Filter "*.env.*" -File
 
     foreach ($file in $envFiles) {
-      $projectName = Split-Path $file.DirectoryName -Leaf
-      $targetName = "$projectName.env"
-      $targetPath = Join-Path $envBackupDir $targetName
-      Copy-Item $file.FullName -Destination $targetPath -Force
-      Write-Host "✅ .env sauvegardé : $targetName" -ForegroundColor Green
+        $projectName = $file.Name -replace "^\.env\.", ""
+        $targetPath = Join-Path $targetFolder "$projectName.env"
+
+        Save -sourcePath $file.FullName -targetPath $targetPath
     }
-  }
 }
 
 
@@ -279,4 +340,64 @@ function Backup-GameSaves {
         Write-Host "🎮 Sauvegarde de '$gameName' depuis '$expandedPath'..."
         Save -sourcePath $expandedPath -relativeTarget "saves\$gameName"
     }
+}
+
+
+function Init-StagingFolder {
+    <#
+    .SYNOPSIS
+    Initialise le dossier temporaire de staging pour le backup.
+
+    .DESCRIPTION
+    Supprime le dossier de staging s’il existe déjà, puis le recrée.
+    Par défaut, le dossier est créé dans $env:TEMP, mais un chemin personnalisé peut être fourni.
+
+    .PARAMETER folderName
+    Nom du sous-dossier à créer. Par défaut : "SergeBackupStaging".
+
+    .PARAMETER customPath
+    Chemin racine personnalisé. Si non fourni, $env:TEMP est utilisé.
+
+    .PARAMETER CleanOnly
+    Si activé, supprime le dossier sans le recréer.
+
+    .OUTPUTS
+    Retourne le chemin complet du dossier de staging (sauf si -CleanOnly est utilisé).
+
+    .EXAMPLE
+    $staging = Init-StagingFolder
+    Save -sourcePath "..." -targetPath "$staging\..."
+
+    .EXAMPLE
+    $staging = Init-StagingFolder -customPath "$env:USERPROFILE\TempBackupStaging"
+
+    .EXAMPLE
+    Init-StagingFolder -CleanOnly
+
+    .NOTES
+    Le dossier est recréé à chaque appel sauf si -CleanOnly est utilisé.
+    #>
+
+    param (
+        [string]$folderName = "MyBackupStaging",
+        [string]$customPath,
+        [switch]$CleanOnly
+    )
+
+    $basePath = if ($customPath) { $customPath } else { $env:TEMP }
+    $staging = Join-Path $basePath $folderName
+
+    if (Test-Path $staging) {
+        Write-Host "🧹 Suppression du dossier temporaire existant : $staging" -ForegroundColor DarkYellow
+        Remove-Item $staging -Recurse -Force
+    }
+
+    if ($CleanOnly) {
+        return
+    }
+
+    Write-Host "📁 Création du dossier temporaire : $staging" -ForegroundColor Cyan
+    New-Item -ItemType Directory -Path $staging | Out-Null
+
+    return $staging
 }
