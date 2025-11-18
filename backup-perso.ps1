@@ -30,7 +30,9 @@ Import-Module (Join-Path $oneDriveDocs "SergeBackup")
 
 
 # Dossier local
-$backupFolder = Init-BackupFolder
+if (-not $BackupFolder) {
+    $BackupFolder = Init-BackupFolder -Name $Name -Path $Path
+}
 Write-Host "📂 Dossier de backup créé : $backupFolder" -ForegroundColor Cyan
 
 
@@ -89,41 +91,18 @@ Copy-EnvFiles -targetPath "$backupFolder\env" -sourcePath $devPath
 Write-Host "✅ Fichiers .env sauvegardés" -ForegroundColor Green
 
 
-# Dossiers finaux dans OneDrive
-$root = Join-Path "$env:USERPROFILE\OneDrive\Documents" "AAA-important\geek\backup"
-$timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm"
-$target = Join-Path $root $timestamp
-$latest = Join-Path $root "latest"
-
-Write-Host "📁 Création du dossier horodaté : $target"
-New-Item -ItemType Directory -Path $target -Force | Out-Null
-
-Write-Host "📁 Mise à jour du dossier latest : $latest"
-if (Test-Path $latest) {
-    Remove-Item $latest -Recurse -Force
-}
-New-Item -ItemType Directory -Path $latest | Out-Null
-
-# 11. 🚚 Déplacement du backup vers le dossier horodaté (y compris fichiers cachés)
-Write-Host "🚚 Déplacement du staging vers le dossier horodaté..."
-Copy-Item -Path "$backupFolder\*" -Destination $target -Recurse -Force
-
-# 12. 📋 Copie vers le dossier latest (y compris fichiers cachés)
-Write-Host "📋 Copie vers le dossier latest..."
-Copy-Item -Path "$target\*" -Destination $latest -Recurse -Force
-
-# 13. 📊 Résumé de la sauvegarde
+# 11. 📊 Résumé de la sauvegarde
 $filesCount = (Get-ChildItem $target -Recurse -File -Force).Count
 Write-Host "📊 $filesCount fichiers sauvegardés dans $target" -ForegroundColor Cyan
 Write-Host "✅ Sauvegarde complète terminée dans :"
 Write-Host "   - $target"
 Write-Host "   - $latest"
 
-# # 14. 🧹 Suppression du dossier de staging
+# # 12. 🧹 Suppression du dossier de staging
 # Write-Host "🧹 Suppression du dossier de staging..."
 # Remove-Item -Path $backupFolder -Recurse -Force
 
-# 15. 🎉 Fin du script
+# 13. 🎉 Fin du script
 if ($filesCount -eq 0) {
     Write-Host "⚠️ Aucun fichier sauvegardé — vérifie tes exclusions ou ton dossier source." -ForegroundColor Red
 } else {
