@@ -49,7 +49,7 @@ function Finalize-Backup {
         [string]$Root = "$env:USERPROFILE\OneDrive\Documents\AAA-important\geek\backup"
     )
 
-    $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm"
+    $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
     $target = Join-Path $Root $timestamp
     $latest = Join-Path $Root "latest"
 
@@ -67,6 +67,29 @@ function Finalize-Backup {
 
     Write-Host "📋 Copie vers le dossier latest..."
     Copy-Item -Path "$target\*" -Destination $latest -Recurse -Force
+
+    # ─────────────────────────────────────────────
+    # 🧹 Rétention des sauvegardes horodatées
+    # ─────────────────────────────────────────────
+
+    $RetentionCount = 3  # ou rendre ça paramétrable plus tard
+    $deletedCount = 0
+
+    $entries = Get-ChildItem -Path $Root -Directory |
+        Where-Object { $_.Name -ne 'latest' -and $_.Name -match '^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$' } |
+        Sort-Object Name -Descending
+
+    $toDelete = $entries | Select-Object -Skip ($RetentionCount - 1)
+
+    foreach ($folder in $toDelete) {
+        Write-Host "🗑️ Suppression de $($folder.FullName)"
+        Remove-Item -Recurse -Force -Path $folder.FullName
+        $deletedCount++
+    }
+
+    Write-Host "`n📦 Sauvegardes conservées : $RetentionCount"
+    Write-Host "🧾 Sauvegardes supprimées : $deletedCount"
+
 
     return $target
 }
