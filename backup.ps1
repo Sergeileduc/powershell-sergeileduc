@@ -22,14 +22,14 @@ param (
 )
 
 # 📁 Initialisation du dossier de staging
-$staging = Init-StagingFolder -folderName $Section
+$backupFolder = Init-BackupFolder
 
 # 🔁 Exécution des blocs selon la section
 switch ($Section) {
-    "env"   { Invoke-BackupEnv -stagingRoot $staging }
-    "games" { Invoke-BackupGames -stagingRoot $staging }
+    "env"   { Invoke-BackupEnv -backupFolder $backupFolder }
+    "games" { Invoke-BackupGames -backupFolder $backupFolder }
     "all"   {
-        Invoke-BackupEnv -stagingRoot (Init-StagingFolder -folderName "env")
-        Invoke-BackupGames -stagingRoot (Init-StagingFolder -folderName "games")
+        Invoke-BackupEnv -backupFolder (Init-StagingFolder -folderName "env")
+        Invoke-BackupGames -backupFolder (Init-StagingFolder -folderName "games")
     }
 }
