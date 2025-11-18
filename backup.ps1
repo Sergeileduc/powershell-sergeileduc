@@ -21,6 +21,11 @@ param (
     [string]$Section = "all"
 )
 
+# Chemin vers le dossier OneDrive Documents
+$oneDriveDocs = Join-Path "$env:USERPROFILE\OneDrive\Documents" "Scripts\Powershell"
+# Importe les fonctions
+Import-Module (Join-Path $oneDriveDocs "SergeBackup")
+
 # 📁 Initialisation du dossier de staging
 $backupFolder = Init-BackupFolder
 
@@ -29,7 +34,7 @@ switch ($Section) {
     "env"   { Invoke-BackupEnv -backupFolder $backupFolder }
     "games" { Invoke-BackupGames -backupFolder $backupFolder }
     "all"   {
-        Invoke-BackupEnv -backupFolder (Init-StagingFolder -folderName "env")
-        Invoke-BackupGames -backupFolder (Init-StagingFolder -folderName "games")
+        Invoke-BackupEnv -backupFolder (Init-StagingFolder)
+        Invoke-BackupGames -backupFolder (Init-StagingFolder)
     }
 }

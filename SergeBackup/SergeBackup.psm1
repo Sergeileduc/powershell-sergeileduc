@@ -395,6 +395,100 @@ function Init-BackupFolder {
     return $backupFolder
 }
 
+# ============================================
+# =============== INVOKE =====================
+# ============================================
+function Invoke-BackupEnv {
+    <#
+    .SYNOPSIS
+        Lance le script de sauvegarde environnementale (backup-perso.ps1) avec des paramètres optionnels.
+
+    .DESCRIPTION
+        Cette fonction appelle le script de profil `backup-perso.ps1`, qui effectue la sauvegarde des fichiers liés à l’environnement utilisateur (dotfiles, configurations, etc.).
+        Elle permet de spécifier un dossier de destination explicite via -BackupFolder, ou de déléguer la création du dossier au script lui-même via Init-BackupFolder, en passant les paramètres -Name et -Path.
+
+    .PARAMETER BackupFolder
+        Chemin complet vers le dossier de destination. Si non fourni, le script appellera Init-BackupFolder avec les paramètres -Name et -Path.
+
+    .PARAMETER Name
+        Nom logique du profil de sauvegarde (ex: 'env'). Utilisé par Init-BackupFolder si BackupFolder n’est pas fourni.
+
+    .PARAMETER Path
+        Dossier racine dans lequel Init-BackupFolder créera le dossier de sauvegarde. Par défaut : $env:USERPROFILE\Backups.
+
+    .EXAMPLE
+        Invoke-BackupEnv -Name 'env' -Path 'D:\Backups'
+
+    .EXAMPLE
+        Invoke-BackupEnv -BackupFolder 'D:\Backups\env_2025-11-18_16-11'
+    #>
+    [CmdletBinding()]
+    param (
+        [string]$BackupFolder,
+        [string]$Name,
+        [string]$Path = "$env:USERPROFILE\Backups"
+    )
+
+    $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\backup-perso.ps1"
+    if (-not (Test-Path $scriptPath)) {
+        Write-Error "Script backup-perso.ps1 introuvable à l'emplacement : $scriptPath"
+        return
+    }
+
+    $invokeParams = @{
+        Name         = $Name
+        Path         = $Path
+    }
+    if ($BackupFolder) { $invokeParams.BackupFolder = $BackupFolder }
+    if ($DryRun)       { $invokeParams.DryRun       = $true }
+
+    & $scriptPath @invokeParams
+}
+
+function Invoke-BackupGames {
+    <#
+    .SYNOPSIS
+        Lance le script de sauvegarde des jeux (backup-games.ps1) avec des paramètres optionnels.
+
+    .DESCRIPTION
+        Cette fonction appelle le script de profil `backup-games.ps1`, qui sauvegarde les fichiers de jeux selon une configuration YAML.
+        Elle permet de spécifier un dossier de destination explicite via -BackupFolder, ou de déléguer la création du dossier au script lui-même via Init-BackupFolder, en passant les paramètres -Name et -Path.
+
+    .PARAMETER BackupFolder
+        Chemin complet vers le dossier de destination. Si non fourni, le script appellera Init-BackupFolder avec les paramètres -Name et -Path.
+
+    .PARAMETER Name
+        Nom logique du profil de sauvegarde (ex: 'games', 'steam'). Utilisé par Init-BackupFolder si BackupFolder n’est pas fourni.
+
+    .PARAMETER Path
+        Dossier racine dans lequel Init-BackupFolder créera le dossier de sauvegarde. Par défaut : $env:USERPROFILE\Backups.
+
+    .EXAMPLE
+        Invoke-BackupGames -Name 'games' -Path 'D:\Backups'
+
+    .EXAMPLE
+        Invoke-BackupGames -BackupFolder 'D:\Backups\games_2025-11-18_16-25'
+    #>
+    [CmdletBinding()]
+    param (
+        [string]$BackupFolder,
+        [string]$Name,
+        [string]$Path = "$env:USERPROFILE\Backups"
+    )
+
+    $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\backup-games.ps1"
+    if (-not (Test-Path $scriptPath)) {
+        Write-Error "Script backup-games.ps1 introuvable à l'emplacement : $scriptPath"
+        return
+    }
+
+    $invokeParams = @{}
+    if ($BackupFolder) { $invokeParams.BackupFolder = $BackupFolder }
+    if ($Name)         { $invokeParams.Name         = $Name }
+    if ($Path)         { $invokeParams.Path         = $Path }
+
+    & $scriptPath @invokeParams
+}
 
 # ============================================
 # =============== LEGACY =====================

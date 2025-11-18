@@ -1,3 +1,15 @@
+<#
+.SYNOPSIS
+  Petit test de Script de backup pour les fichiers perso
+#>
+
+
+param (
+    [string]$BackupFolder,
+    [string]$Name = 'env',
+    [string]$Path = "$env:USERPROFILE\Backups"
+)
+
 # Variables perso
 $devPath = Join-Path -Path $env:USERPROFILE -ChildPath "Dev"
 
@@ -8,7 +20,9 @@ Import-Module (Join-Path $oneDriveDocs "SergeBackup")
 
 
 # Dossier local
-$backupFolder = Init-BackupFolder
+if (-not $BackupFolder) {
+    $BackupFolder = Init-BackupFolder -Name $Name -Path $Path
+}
 Write-Host "📂 Dossier de backup créé : $backupFolder" -ForegroundColor Cyan
 
 

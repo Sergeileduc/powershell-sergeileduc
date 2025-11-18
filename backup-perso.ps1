@@ -1,4 +1,5 @@
 <#
+  .SYNOPSIS
   Script de sauvegarde de l'environnement de développement
   Destination : OneDrive\Documents\AAA-important\geek\backup\
   Sauvegarde :
@@ -12,6 +13,12 @@
     - Fichiers .env (renommés par projet)
     - Version horodatée + version "latest"
 #>
+
+param (
+    [string]$BackupFolder,
+    [string]$Name = 'env',
+    [string]$Path = "$env:USERPROFILE\Backups"
+)
 
 # Variables perso
 $devPath = Join-Path -Path $env:USERPROFILE -ChildPath "Dev"
@@ -97,7 +104,7 @@ if (Test-Path $latest) {
 }
 New-Item -ItemType Directory -Path $latest | Out-Null
 
-# 11. 🚚 Déplacement du staging vers le dossier horodaté (y compris fichiers cachés)
+# 11. 🚚 Déplacement du backup vers le dossier horodaté (y compris fichiers cachés)
 Write-Host "🚚 Déplacement du staging vers le dossier horodaté..."
 Copy-Item -Path "$backupFolder\*" -Destination $target -Recurse -Force
 
