@@ -239,31 +239,62 @@ function Save {
 }
 
 
+<#
+.SYNOPSIS
+Copie tous les fichiers .env* depuis un dossier source vers un dossier cible, en conservant la structure relative.
+
+.DESCRIPTION
+Parcourt récursivement le dossier source à la recherche de fichiers `.env*` (ex: `.env`, `.env.local`, etc.).
+Chaque fichier trouvé est copié dans le dossier cible, en respectant sa structure relative d'origine.
+Si `-DryRun` est activé, affiche les chemins sans effectuer la copie.
+
+.PARAMETER targetPath
+Chemin de destination où les fichiers seront copiés.
+
+.PARAMETER sourcePath
+Chemin source à parcourir. Par défaut : dossier courant.
+
+.PARAMETER DryRun
+Affiche les fichiers qui seraient copiés, sans effectuer d'action.
+
+.EXAMPLE
+Copy-EnvFiles -targetPath "D:\Backups\env" -sourcePath "$env:USERPROFILE\Dev"
+
+.EXAMPLE
+Copy-EnvFiles -targetPath "D:\Backups\env" -sourcePath "$env:USERPROFILE\Dev" -DryRun
+
+.NOTES
+- Crée les dossiers intermédiaires si nécessaire.
+- Écrase les fichiers existants dans le dossier cible, sauf en mode DryRun.
+#>
 function Copy-EnvFiles {
-    <#
-    .SYNOPSIS
-    Copie les fichiers .env* depuis un dossier source vers un dossier cible.
-
-    .PARAMETER targetPath
-    Chemin de destination pour les fichiers .env*.
-
-    .PARAMETER sourcePath
-    Chemin source où chercher les fichiers .env*. Par défaut : dossier courant.
-
-    .EXAMPLE
-    Copy-EnvFiles -targetPath "D:\Backups\envs" -sourcePath "$env:USERPROFILE\MyApp"
-    #>
     [CmdletBinding()]
     param (
         [string]$targetPath,
-        [string]$sourcePath = (Get-Location).Path
+        [string]$sourcePath = (Get-Location).Path,
+        [switch]$DryRun
     )
 
-    $dotenvFiles = Get-ChildItem -Path $sourcePath -Filter "*.env*" -File -ErrorAction SilentlyContinue
+    if (-not (Test-Path -Path $targetPath) -and -not $DryRun) {
+        New-Item -Path $targetPath -ItemType Directory | Out-Null
+    }
+
+    $dotenvFiles = Get-ChildItem -Path $sourcePath -Filter "*.env*" -Recurse -File -ErrorAction SilentlyContinue
 
     foreach ($file in $dotenvFiles) {
-        $destination = Join-Path -Path $targetPath -ChildPath $file.Name
-        Copy-Item -Path $file.FullName -Destination $destination -Force
+        $relativePath = $file.FullName.Substring($sourcePath.Length).TrimStart("\")
+        $destination = Join-Path -Path $targetPath -ChildPath $relativePath
+
+        if ($DryRun) {
+            Write-Host "[DryRun] $($file.FullName) → $destination"
+        } else {
+            $destinationFolder = Split-Path -Path $destination -Parent
+            if (-not (Test-Path -Path $destinationFolder)) {
+                New-Item -Path $destinationFolder -ItemType Directory -Force | Out-Null
+            }
+
+            Copy-Item -Path $file.FullName -Destination $destination -Force
+        }
     }
 }
 
