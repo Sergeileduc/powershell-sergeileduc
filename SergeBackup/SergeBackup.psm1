@@ -190,8 +190,15 @@ function Save-ItemWithExclusions {
 
     $items = Get-ChildItem -Path $sourcePath -Recurse
 
+    # Exclusion magique : ignore l'élément si son nom ou son chemin correspond à une règle d'exclusion.
+    # Gère les cas où les fichiers sont dans des sous-dossiers (genre "bin/flyctl.exe").
     foreach ($item in $items) {
-        if ($exclusions -contains $item.Name) {
+        if ($exclusions | Where-Object { 
+            $_ -ieq $item.Name -or 
+            $item.FullName -like "*\$_" -or 
+            $item.FullName -like "*\$_\*" -or 
+            $item.FullName -like "*\$_.*"
+        }) {
             continue
         }
 
