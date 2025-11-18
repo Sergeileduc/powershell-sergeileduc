@@ -92,11 +92,8 @@ Write-Host "✅ Fichiers .env sauvegardés" -ForegroundColor Green
 
 
 # 11. 📊 Résumé de la sauvegarde
-$filesCount = (Get-ChildItem $target -Recurse -File -Force).Count
-Write-Host "📊 $filesCount fichiers sauvegardés dans $target" -ForegroundColor Cyan
-Write-Host "✅ Sauvegarde complète terminée dans :"
-Write-Host "   - $target"
-Write-Host "   - $latest"
+$filesCount = (Get-ChildItem $backupFolder -Recurse -File -Force).Count
+Write-Host "📊 $filesCount fichiers sauvegardés dans $backupFolder" -ForegroundColor Cyan
 
 # # 12. 🧹 Suppression du dossier de staging
 # Write-Host "🧹 Suppression du dossier de staging..."

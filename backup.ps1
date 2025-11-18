@@ -83,16 +83,21 @@ $backupFolder = Init-BackupFolder
 switch ($Section) {
     'env' {
         Invoke-BackupEnv -BackupFolder $backupFolder
-        Finalize-Backup -BackupFolder $backupFolder
+        $target = Finalize-Backup -BackupFolder $backupFolder
     }
     'games' {
         Invoke-BackupGames -BackupFolder $backupFolder
-        Finalize-Backup -BackupFolder $backupFolder
+        $target = Finalize-Backup -BackupFolder $backupFolder
     }
     "all"   {
         Invoke-BackupEnv -backupFolder $backupFolder
         Invoke-BackupGames -backupFolder $backupFolder
-        Finalize-Backup -BackupFolder $backupFolder
-        Finalize-Backup -BackupFolder $backupFolder
+        $target = Finalize-Backup -BackupFolder $backupFolder
     }
 }
+
+# Fin du script
+$fileCount = (Get-ChildItem -Recurse $target).Count
+
+Write-Host "📊 $fileCount fichiers sauvegardés dans :"
+Write-Host "   $target"
