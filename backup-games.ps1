@@ -4,7 +4,10 @@ $oneDriveDocs = Join-Path "$env:USERPROFILE\OneDrive\Documents" "Scripts\Powersh
 Import-Module (Join-Path $oneDriveDocs "SergeBackup")
 
 # Dossier de backup local
-$backupFolder = Init-BackupFolder -customPath "$env:USERPROFILE"
+if (-not $BackupFolder) {
+    $BackupFolder = Init-BackupFolder -Name $Name -Path $Path
+}
+Write-Host "📂 Dossier de backup créé : $backupFolder" -ForegroundColor Cyan
 
 # Sauvegarde des jeux
 $gameConfig = "$oneDriveDocs\game-saves.yaml"
