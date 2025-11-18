@@ -93,7 +93,7 @@ function Save-Text {
     try {
         $content | Out-File -FilePath $targetPath -Encoding UTF8
     } catch {
-        Write-Error "💥 Échec de l’écriture dans '$targetPath' : $_"
+        Write-Error "💥 Échec de l'écriture dans '$targetPath' : $_"
     }
 }
 
@@ -427,4 +427,47 @@ function Init-StagingFolder {
     New-Item -ItemType Directory -Path $staging | Out-Null
 
     return $staging
+}
+
+
+function Init-BackupFolder {
+    <#
+    .SYNOPSIS
+    Initialise un dossier de sauvegarde, avec nom personnalisé et emplacement optionnel.
+
+    .DESCRIPTION
+    Crée un dossier nommé `$folderName` dans `$env:USERPROFILE` ou dans un chemin personnalisé (`$customPath`).
+    Si le paramètre `-CleanOnly` est activé, le dossier est supprimé s’il existe, puis recréé.
+
+    .EXAMPLE
+    $backupFolder = Init-BackupFolder -folderName "MyBackup" -customPath "D:\Backups"
+    Write-Host "Dossier de sauvegarde : $backupFolder"
+
+    .EXAMPLE
+    Init-BackupFolder -CleanOnly
+
+    .NOTES
+    - Le nom par défaut est "MyBackupPerso"
+    - Le dossier est créé s’il n’existe pas, ou recréé si `-CleanOnly` est utilisé
+    - Retourne le chemin complet du dossier
+    #>
+    [CmdletBinding()]
+    param (
+        [string]$folderName = "MyBackupPerso",
+        [string]$customPath,
+        [switch]$CleanOnly
+    )
+
+    $basePath = if ($customPath) { $customPath } else { $env:USERPROFILE }
+    $backupFolder = Join-Path -Path $basePath -ChildPath $folderName
+
+    if ($CleanOnly -and (Test-Path -Path $backupFolder)) {
+        Remove-Item -Path $backupFolder -Recurse -Force
+    }
+
+    if (-not (Test-Path -Path $backupFolder)) {
+        New-Item -Path $backupFolder -ItemType Directory | Out-Null
+    }
+
+    return $backupFolder
 }
