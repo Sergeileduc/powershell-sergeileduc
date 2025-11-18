@@ -13,6 +13,9 @@
     - Version horodatée + version "latest"
 #>
 
+# Variables perso
+$devPath = Join-Path -Path $env:USERPROFILE -ChildPath "Dev"
+
 # Chemin vers le dossier OneDrive Documents
 $oneDriveDocs = Join-Path "$env:USERPROFILE\OneDrive\Documents" "Scripts\Powershell"
 # Importe les fonctions
@@ -68,7 +71,6 @@ Write-Host "✅ Clés SSH sauvegardées (fichiers inutiles exclus)" -ForegroundC
 Save -sourcePath "$env:USERPROFILE\.fly" -targetPath "$backupFolder\fly" -exclusions @(
     "bin", "flyctl.exe", "flyctl", "wintun.dll", "fly.exe", "fly.exe.old", "fly-agent.sock"
 )
-
 Write-Host "✅ Config Fly.io sauvegardée (sans le dossier bin ni les exécutables)" -ForegroundColor Green
 
 # 9. Dossier .config (avec exclusions)
@@ -76,7 +78,8 @@ Save -sourcePath "$env:USERPROFILE\.config" -targetPath "$backupFolder\config" -
 Write-Host "✅ Dossier .config sauvegardé (exclusions appliquées)" -ForegroundColor Green
 
 # 10. Fichiers .env (renommés par projet)
-Copy-EnvFiles -targetFolder "$backupFolder\env"
+Copy-EnvFiles -targetPath "$backupFolder\env" -sourcePath $devPath
+Write-Host "✅ Fichiers .env sauvegardés" -ForegroundColor Green
 
 
 # # Dossiers finaux dans OneDrive

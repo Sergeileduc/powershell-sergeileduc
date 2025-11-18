@@ -242,31 +242,28 @@ function Save {
 function Copy-EnvFiles {
     <#
     .SYNOPSIS
-    Sauvegarde les fichiers .env renommés par projet dans un dossier cible.
+    Copie les fichiers .env* depuis un dossier source vers un dossier cible.
 
-    .DESCRIPTION
-    Cette fonction parcourt les fichiers .env présents dans le dossier courant (ou un dossier spécifique),
-    et les copie vers un dossier de sauvegarde en les renommant selon leur projet.
+    .PARAMETER targetPath
+    Chemin de destination pour les fichiers .env*.
 
-    .PARAMETER targetFolder
-    Dossier de destination dans lequel les fichiers .env seront copiés.
+    .PARAMETER sourcePath
+    Chemin source où chercher les fichiers .env*. Par défaut : dossier courant.
 
     .EXAMPLE
-    Copy-EnvFiles -targetFolder "backup\env"
+    Copy-EnvFiles -targetPath "D:\Backups\envs" -sourcePath "$env:USERPROFILE\MyApp"
     #>
-
+    [CmdletBinding()]
     param (
-        [Parameter(Mandatory = $true)]
-        [string]$targetFolder
+        [string]$targetPath,
+        [string]$sourcePath = (Get-Location).Path
     )
 
-    $envFiles = Get-ChildItem -Path . -Filter "*.env.*" -File
+    $dotenvFiles = Get-ChildItem -Path $sourcePath -Filter "*.env*" -File -ErrorAction SilentlyContinue
 
-    foreach ($file in $envFiles) {
-        $projectName = $file.Name -replace "^\.env\.", ""
-        $targetPath = Join-Path $targetFolder "$projectName.env"
-
-        Save -sourcePath $file.FullName -targetPath $targetPath
+    foreach ($file in $dotenvFiles) {
+        $destination = Join-Path -Path $targetPath -ChildPath $file.Name
+        Copy-Item -Path $file.FullName -Destination $destination -Force
     }
 }
 
