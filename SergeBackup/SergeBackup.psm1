@@ -1,57 +1,6 @@
 Import-Module powershell-yaml
 
 
-function Copy-FolderWithExclusions {
-  # Copie un dossier source vers une destination en excluant certains fichiers ou dossiers.
-  # - Source : chemin complet du dossier source à copier.
-  # - Destination : chemin complet du dossier de destination.
-  # - ExcludeNames : tableau de noms à exclure (fichiers ou dossiers).
-  # Les exclusions sont insensibles à la casse et peuvent viser des noms, chemins ou extensions.
-
-  param (
-    [string]$Source,
-    [string]$Destination,
-    [string[]]$ExcludeNames
-  )
-
-  # Crée le dossier de destination s’il n’existe pas
-  if (!(Test-Path $Destination)) {
-    New-Item -ItemType Directory -Path $Destination -Force | Out-Null
-  }
-
-  # Récupère tous les éléments du dossier source
-  $items = Get-ChildItem -Path $Source -Recurse
-
-  foreach ($item in $items) {
-    $exclude = $false
-
-    # Vérifie si l’élément doit être exclu
-    foreach ($excl in $ExcludeNames) {
-      if (
-        $item.Name -ieq $excl -or
-        $item.FullName -like "*\$excl" -or
-        $item.FullName -like "*\$excl\*" -or
-        $item.FullName -like "*\$excl.*"
-      ) {
-        $exclude = $true
-        break
-      }
-    }
-
-    # Si non exclu, copie l’élément
-    if (-not $exclude) {
-      $target = $item.FullName.Replace($Source, $Destination)
-      if ($item.PSIsContainer) {
-        if (!(Test-Path $target)) {
-          New-Item -ItemType Directory -Path $target -Force | Out-Null
-        }
-      } else {
-        Copy-Item $item.FullName -Destination $target -Force
-      }
-    }
-  }
-}
-
 function Save-Text {
     <#
     .SYNOPSIS
@@ -376,6 +325,58 @@ function Backup-GameSaves {
     }
 }
 
+function Init-BackupFolder {
+    <#
+    .SYNOPSIS
+    Initialise un dossier de sauvegarde, avec nom personnalisé et emplacement optionnel.
+
+    .DESCRIPTION
+    Crée un dossier nommé `$folderName` dans `$env:USERPROFILE` ou dans un chemin personnalisé (`$customPath`).
+    Si le paramètre `-CleanOnly` est activé, le dossier est supprimé s’il existe, puis recréé.
+
+    .EXAMPLE
+    $backupFolder = Init-BackupFolder -folderName "MyBackup" -customPath "D:\Backups"
+    Write-Host "Dossier de sauvegarde : $backupFolder"
+
+    .EXAMPLE
+    Init-BackupFolder -CleanOnly
+
+    .NOTES
+    - Le nom par défaut est "MyBackupPerso"
+    - Le dossier est créé s’il n’existe pas, ou recréé si `-CleanOnly` est utilisé
+    - Retourne le chemin complet du dossier
+    #>
+    [CmdletBinding()]
+    param (
+        [string]$folderName = "MyBackupPerso",
+        [string]$customPath,
+        [switch]$CleanOnly
+    )
+
+    $basePath = if ($customPath) { $customPath } else { $env:USERPROFILE }
+    $backupFolder = Join-Path -Path $basePath -ChildPath $folderName
+
+    if ($CleanOnly -and (Test-Path -Path $backupFolder)) {
+        Remove-Item -Path $backupFolder -Recurse -Force
+    }
+
+    if (-not (Test-Path -Path $backupFolder)) {
+        New-Item -Path $backupFolder -ItemType Directory | Out-Null
+    }
+
+    return $backupFolder
+}
+
+
+# ============================================
+# =============== LEGACY =====================
+# ============================================
+# Fonctions conservées pour compatibilité ou référence.
+# Ne sont plus utilisées dans le flux principal.
+
+# .NOTES
+# - Cette fonction est conservée à titre de référence.
+# - Remplacée par Init-BackupFolder dans le flux principal.
 
 function Init-StagingFolder {
     <#
@@ -437,44 +438,53 @@ function Init-StagingFolder {
 }
 
 
-function Init-BackupFolder {
-    <#
-    .SYNOPSIS
-    Initialise un dossier de sauvegarde, avec nom personnalisé et emplacement optionnel.
+function Copy-FolderWithExclusions {
+  # Copie un dossier source vers une destination en excluant certains fichiers ou dossiers.
+  # - Source : chemin complet du dossier source à copier.
+  # - Destination : chemin complet du dossier de destination.
+  # - ExcludeNames : tableau de noms à exclure (fichiers ou dossiers).
+  # Les exclusions sont insensibles à la casse et peuvent viser des noms, chemins ou extensions.
 
-    .DESCRIPTION
-    Crée un dossier nommé `$folderName` dans `$env:USERPROFILE` ou dans un chemin personnalisé (`$customPath`).
-    Si le paramètre `-CleanOnly` est activé, le dossier est supprimé s’il existe, puis recréé.
+  param (
+    [string]$Source,
+    [string]$Destination,
+    [string[]]$ExcludeNames
+  )
 
-    .EXAMPLE
-    $backupFolder = Init-BackupFolder -folderName "MyBackup" -customPath "D:\Backups"
-    Write-Host "Dossier de sauvegarde : $backupFolder"
+  # Crée le dossier de destination s’il n’existe pas
+  if (!(Test-Path $Destination)) {
+    New-Item -ItemType Directory -Path $Destination -Force | Out-Null
+  }
 
-    .EXAMPLE
-    Init-BackupFolder -CleanOnly
+  # Récupère tous les éléments du dossier source
+  $items = Get-ChildItem -Path $Source -Recurse
 
-    .NOTES
-    - Le nom par défaut est "MyBackupPerso"
-    - Le dossier est créé s’il n’existe pas, ou recréé si `-CleanOnly` est utilisé
-    - Retourne le chemin complet du dossier
-    #>
-    [CmdletBinding()]
-    param (
-        [string]$folderName = "MyBackupPerso",
-        [string]$customPath,
-        [switch]$CleanOnly
-    )
+  foreach ($item in $items) {
+    $exclude = $false
 
-    $basePath = if ($customPath) { $customPath } else { $env:USERPROFILE }
-    $backupFolder = Join-Path -Path $basePath -ChildPath $folderName
-
-    if ($CleanOnly -and (Test-Path -Path $backupFolder)) {
-        Remove-Item -Path $backupFolder -Recurse -Force
+    # Vérifie si l’élément doit être exclu
+    foreach ($excl in $ExcludeNames) {
+      if (
+        $item.Name -ieq $excl -or
+        $item.FullName -like "*\$excl" -or
+        $item.FullName -like "*\$excl\*" -or
+        $item.FullName -like "*\$excl.*"
+      ) {
+        $exclude = $true
+        break
+      }
     }
 
-    if (-not (Test-Path -Path $backupFolder)) {
-        New-Item -Path $backupFolder -ItemType Directory | Out-Null
+    # Si non exclu, copie l’élément
+    if (-not $exclude) {
+      $target = $item.FullName.Replace($Source, $Destination)
+      if ($item.PSIsContainer) {
+        if (!(Test-Path $target)) {
+          New-Item -ItemType Directory -Path $target -Force | Out-Null
+        }
+      } else {
+        Copy-Item $item.FullName -Destination $target -Force
+      }
     }
-
-    return $backupFolder
+  }
 }
