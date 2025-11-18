@@ -52,17 +52,17 @@ SergeBackup.psm1
 
 ## Exemples d'utilisation
 
-# Initialisation du dossier temporaire
+### Initialisation du dossier de backup
 
-$staging = Init-StagingFolder -customPath "$env:USERPROFILE\TempBackupStaging"
+$backupFolder = Init-BackupFolder -customPath "$env:USERPROFILE"
 
-# Sauvegarde de fichiers et contenu
+### Sauvegarde de fichiers et contenu
 
-Save -sourcePath "$env:APPDATA\Code\User\settings.json" -targetPath "$staging\vscode\vscode-settings.json"
-Save -sourcePath "$env:USERPROFILE\.ssh" -targetPath "$staging\ssh" -exclusions @("known_hosts", "config.old")
-Save -textContent (pip freeze) -targetPath "$staging\packages\pip.txt"
+Save -sourcePath "$env:APPDATA\Code\User\settings.json" -targetPath "$backupFolder\vscode\vscode-settings.json"
+Save -sourcePath "$env:USERPROFILE\.ssh" -targetPath "$backupFolder\ssh" -exclusions @("known_hosts", "config.old")
+Save -textContent (pip freeze) -targetPath "$backupFolder\packages\pip.txt"
 
-# Duplication vers les destinations finales
+### Duplication vers les destinations finales
 
 $root = "$env:USERPROFILE\OneDrive\Documents\AAA-important\geek\backup"
 $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm"
