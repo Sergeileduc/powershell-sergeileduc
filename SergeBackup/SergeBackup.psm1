@@ -200,8 +200,8 @@ function Save {
     #>
 
     param (
-        [string]$textContent,
         [string]$sourcePath,
+        [string]$textContent,
         [Parameter(Mandatory = $true)]
         [string]$targetPath,
         [string[]]$exclusions
