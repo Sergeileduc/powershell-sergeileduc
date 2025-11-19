@@ -41,7 +41,7 @@ $tempChocoExport = Join-Path $env:TEMP "packages-choco.config"
 choco export --include-version-numbers $tempChocoExport
 
 if (Test-Path $tempChocoExport) {
-  Save $tempChocoExport -targetPath "$backupFolder\packages-choco.config"
+  Save -sourcePath $tempChocoExport -targetPath "$backupFolder\packages-choco.config"
   Write-Host "✅ Chocolatey exporté" -ForegroundColor Green
   Remove-Item $tempChocoExport
 } else {
