@@ -27,5 +27,8 @@
         "titleBar.inactiveBackground": "#05112099",
         "titleBar.inactiveForeground": "#e7e7e799"
     },
-    "peacock.color": "#051120"
+    "peacock.color": "#051120",
+    "conventionalCommits.scopes": [
+        "games"
+    ]
 }
