@@ -2,8 +2,10 @@ param (
     [string]$AppFolder = "$env:APPDATA",
     [int]$Depth = 2,
     [switch]$DeepDive,
-    [string[]]$ExcludeFolders = @()
+    [string[]]$ExcludeFolders = @(),
+    [string[]]$ExcludeExtensions = @()
 )
+
 
 Write-Host "`n📦 Analyse de $AppFolder`n" -ForegroundColor Cyan
 
@@ -32,8 +34,11 @@ foreach ($folder in $folders) {
 
     $filteredFiles = $allFiles | Where-Object {
         $dir = $_.DirectoryName.ToLower()
-        -not ($suspectPatterns + $ExcludeFolders | Where-Object { $dir -like "*$_*" })
+        $ext = $_.Extension.ToLower()
+        -not ($suspectPatterns + $ExcludeFolders | Where-Object { $dir -like "*$_*" }) -and
+        -not ($ExcludeExtensions | Where-Object { $ext -eq $_.ToLower() })
     }
+
 
     $filteredSize = ($filteredFiles | Measure-Object -Property Length -Sum).Sum
     $filteredMB = [math]::Round($filteredSize / 1MB, 2)
