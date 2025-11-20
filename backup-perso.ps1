@@ -50,8 +50,14 @@ if (Test-Path $tempChocoExport) {
 
 # 2. pip
 $pipList = pip freeze | Out-String
-Save -textContent $pipList -targetPath "$backupFolder\pip\requirements.txt"
-Write-Host "✅ pip freeze enregistré" -ForegroundColor Green
+Save -textContent $pipList -targetPath "$backupFolder\pip\requirements-freeze.txt"
+Write-Host "✅ pip freeze enregistré (versions figées)" -ForegroundColor Green
+
+# 2.5 pip (version loose, sans versions)
+$pipLoose = pip list --not-required --format=freeze | ForEach-Object { ($_ -split '==')[0] } | Out-String
+Save -textContent $pipLoose -targetPath "$backupFolder\pip\requirements-loose.txt"
+Write-Host "✅ pip loose enregistré (sans versions, paquets explicites)" -ForegroundColor Green
+
 
 # 3. Variables d’environnement
 $envVars = Get-ChildItem Env: | ForEach-Object { "$($_.Name),$($_.Value)" }
