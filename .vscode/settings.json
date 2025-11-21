@@ -31,6 +31,7 @@
     "conventionalCommits.scopes": [
         "games",
         "backup",
-        "analyze"
+        "analyze",
+        "clean"
     ]
 }
