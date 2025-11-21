@@ -1,3 +1,4 @@
+# .\analyze.ps1 -ExcludeFolders @('models','Crash Reports','ShaderCache','download\storage') -ExcludeExtensions @('.log','.bak', '.pak', '.pma', '.exe', '.dll', '.lock', '.sst') -DeepDive
 param (
     [string]$AppFolder = "$env:APPDATA",
     [int]$Depth = 2,
@@ -112,3 +113,36 @@ Write-Host "`n📊 Résumé global" -ForegroundColor Cyan
 Write-Host "   💾 Taille totale AppData\Roaming : $rawTotalMB MB"
 Write-Host "   🧹 Taille filtrée (sans suspects) : $filteredTotalMB MB"
 Write-Host "   🎯 Gain potentiel : $gainMB MB ($gainPercent%)"
+
+Write-Host "`n🧾 Exclusions appliquées" -ForegroundColor Cyan
+if ($ExcludeFolders.Count -gt 0) {
+    Write-Host "   📁 Dossiers exclus : $($ExcludeFolders -join ', ')"
+}
+if ($ExcludeExtensions.Count -gt 0) {
+    Write-Host "   📄 Extensions exclues : $($ExcludeExtensions -join ', ')"
+}
+
+# Suggestions d’exclusions par extension
+$filteredFilesWithExt = $filteredFiles | Where-Object { $_.Extension }
+Write-Host "🔍 Fichiers avec extension : $($filteredFilesWithExt.Count)"
+
+$heavyExtensions = $filteredFilesWithExt | Group-Object Extension | ForEach-Object {
+    $totalMB = ($_.Group | Measure-Object Length -Sum).Sum / 1MB
+    if ($totalMB -gt 1) {
+        [PSCustomObject]@{
+            Extension = $_.Name
+            TotalMB = [math]::Round($totalMB, 2)
+        }
+    }
+} | Sort-Object TotalMB -Descending
+
+if ($heavyExtensions -and $heavyExtensions.Count -gt 0) {
+    Write-Host "`n💡 Suggestions d’exclusions (extensions > 1 MB)" -ForegroundColor Cyan
+    foreach ($ext in $heavyExtensions) {
+        Write-Host "   📦 $($ext.Extension) — $($ext.TotalMB) MB"
+    }
+}
+
+$filteredFilesWithExt | Select-Object -First 10 | ForEach-Object {
+    Write-Host "   ➤ $($_.Name) — $($_.Extension)"
+}
