@@ -29,6 +29,8 @@
     },
     "peacock.color": "#051120",
     "conventionalCommits.scopes": [
-        "games"
+        "games",
+        "backup",
+        "analyze"
     ]
 }
