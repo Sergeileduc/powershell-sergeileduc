@@ -1,148 +1,104 @@
-# .\analyze.ps1 -ExcludeFolders @('models','Crash Reports','ShaderCache','download\storage') -ExcludeExtensions @('.log','.bak', '.pak', '.pma', '.exe', '.dll', '.lock', '.sst') -DeepDive
-param (
-    [string]$AppFolder = "$env:APPDATA",
-    [int]$Depth = 2,
-    [switch]$DeepDive,
+param(
+    [string]$BasePath = "$env:APPDATA",
     [string[]]$ExcludeFolders = @(),
-    [string[]]$ExcludeExtensions = @()
+    [string[]]$ExcludeExtensions = @(),
+    [switch]$DeepDive
 )
 
-
-Write-Host "`n📦 Analyse de $AppFolder`n" -ForegroundColor Cyan
-
+# --- Patterns suspects
 $suspectPatterns = @(
-    'cache','log','crash','temp','report','shader','widevine',
+    'cache', 'root_cache', 'log','crash','temp','report','shader','widevine',
     'component','dump','backup','cookies','Crash Reports','GrShaderCache',
     'ShaderCache','MediaFoundationWidevineCdm','Opera Add-ons Downloads'
 )
 
-$keyExtensions = '*.json','*.ini','*.conf','*.xml','*.settings','*.sqlite','*.db'
-
-$totalRaw = 0
-$totalFiltered = 0
-
-$folders = Get-ChildItem -Path $AppFolder -Directory
-
-foreach ($folder in $folders) {
-    $path = $folder.FullName
-    $name = $folder.Name
-
-    $allFiles = Get-ChildItem -Path $path -Recurse -File -ErrorAction SilentlyContinue
-
-    $rawSize = ($allFiles | Measure-Object -Property Length -Sum).Sum
-    $rawMB = [math]::Round($rawSize / 1MB, 2)
-    $totalRaw += $rawSize
-
-    $filteredFiles = $allFiles | Where-Object {
-        $dir = $_.DirectoryName.ToLower()
-        $ext = $_.Extension.ToLower()
-        -not ($suspectPatterns + $ExcludeFolders | Where-Object { $dir -like "*$_*" }) -and
-        -not ($ExcludeExtensions | Where-Object { $ext -eq $_.ToLower() })
+# --- Fonction utilitaire pour afficher taille en MB ou KB
+function Format-Size {
+    param([long]$bytes)
+    if ($bytes -ge 1MB) {
+        return ("{0:N2} MB" -f ($bytes / 1MB))
+    } else {
+        return ("{0:N0} KB" -f ($bytes / 1KB))
     }
-
-
-    $filteredSize = ($filteredFiles | Measure-Object -Property Length -Sum).Sum
-    $filteredMB = [math]::Round($filteredSize / 1MB, 2)
-    $totalFiltered += $filteredSize
-
-    $keyFiles = $filteredFiles | Where-Object {
-        $keyExtensions | Where-Object { $_ -and $_ -ne '' -and $_ -like "*$($_)" }
-    }
-
-    $suspectDirs = Get-ChildItem -Path $path -Directory -Recurse -ErrorAction SilentlyContinue | Where-Object {
-        $folderName = $_.Name.ToLower()
-        $suspectPatterns | Where-Object { $folderName -like "*$_*" }
-    }
-
-    Write-Host "📁 $name"
-    Write-Host "   🔸 Taille brute     : $rawMB MB"
-    Write-Host "   🔹 Taille filtrée   : $filteredMB MB"
-    Write-Host "   ⚠️  Dossiers suspects : $($suspectDirs.Count)"
-
-    foreach ($file in $keyFiles) {
-        $relative = $file.FullName.Substring($AppFolder.Length + 1)
-        Write-Host "   🔹 Fichier clé : $relative"
-    }
-
-    foreach ($suspect in $suspectDirs) {
-        $relative = $suspect.FullName.Substring($AppFolder.Length + 1)
-        Write-Host "   ⚠️  Suspect : $relative" -ForegroundColor DarkGray
-    }
-
-    if ($DeepDive) {
-        Write-Host "   🔍 Analyse détaillée..." -ForegroundColor Magenta
-
-        # Top dossiers restants
-        $filteredFiles | Group-Object { $_.DirectoryName } | ForEach-Object {
-            [PSCustomObject]@{
-                Path = $_.Name
-                Count = $_.Count
-                SizeMB = [math]::Round(($_.Group | Measure-Object Length -Sum).Sum / 1MB, 2)
-            }
-        } | Sort-Object SizeMB -Descending | Select-Object -First 5 | ForEach-Object {
-            Write-Host "      📂 $($_.Path) — $($_.SizeMB) MB"
-        }
-
-        # Top fichiers
-        $filteredFiles | Sort-Object Length -Descending | Select-Object -First 5 | ForEach-Object {
-            $size = [math]::Round($_.Length / 1MB, 2)
-            Write-Host "      📄 $($_.FullName) — $size MB"
-        }
-
-        # Extensions les plus lourdes
-        $filteredFiles | Group-Object Extension | ForEach-Object {
-            [PSCustomObject]@{
-                Extension = $_.Name
-                Count = $_.Count
-                TotalMB = [math]::Round(($_.Group | Measure-Object Length -Sum).Sum / 1MB, 2)
-            }
-        } | Sort-Object TotalMB -Descending | Select-Object -First 5 | ForEach-Object {
-            Write-Host "      📦 $($_.Extension) — $($_.TotalMB) MB"
-        }
-    }
-
-    Write-Host ""
 }
 
-$rawTotalMB = [math]::Round($totalRaw / 1MB, 2)
-$filteredTotalMB = [math]::Round($totalFiltered / 1MB, 2)
-$gainMB = [math]::Round($rawTotalMB - $filteredTotalMB, 2)
-$gainPercent = if ($rawTotalMB -ne 0) { [math]::Round(($gainMB / $rawTotalMB) * 100, 1) } else { 0 }
+Write-Host "📂 Analyse de $BasePath" -ForegroundColor Cyan
 
+# --- Récupération des fichiers
+$allFiles = Get-ChildItem $BasePath -Recurse -File -ErrorAction SilentlyContinue
+
+# --- Application des exclusions
+$filteredFiles = @()
+foreach ($file in $allFiles) {
+    $dir = $file.DirectoryName.ToLower()
+    $ext = $file.Extension.ToLower()
+    $name = $file.FullName.ToLower()
+
+    # Exclusion par dossier
+    $excludeDirMatch = $false
+    foreach ($folder in $ExcludeFolders) {
+        if ($dir -like "*$folder*") { $excludeDirMatch = $true; break }
+    }
+
+    # Exclusion par extension
+    $excludeExtMatch = $ExcludeExtensions -contains $ext
+
+    # Exclusion par pattern suspect
+    $excludePatternMatch = $false
+    foreach ($pattern in $suspectPatterns) {
+        if ($name -like "*$pattern*") { $excludePatternMatch = $true; break }
+    }
+
+    if (-not $excludeDirMatch -and -not $excludeExtMatch -and -not $excludePatternMatch) {
+        $filteredFiles += $file
+    }
+}
+
+# --- Calcul des tailles
+$totalSize = ($allFiles | Measure-Object Length -Sum).Sum
+$filteredSize = ($filteredFiles | Measure-Object Length -Sum).Sum
+$gain = $totalSize - $filteredSize
+$percent = if ($totalSize -gt 0) { [math]::Round(($gain / $totalSize) * 100, 1) } else { 0 }
+
+# --- Résumé global
 Write-Host "`n📊 Résumé global" -ForegroundColor Cyan
-Write-Host "   💾 Taille totale AppData\Roaming : $rawTotalMB MB"
-Write-Host "   🧹 Taille filtrée (sans suspects) : $filteredTotalMB MB"
-Write-Host "   🎯 Gain potentiel : $gainMB MB ($gainPercent%)"
+Write-Host ("   💾 Taille totale {0} : {1}" -f $BasePath, (Format-Size $totalSize))
+Write-Host ("   🧹 Taille filtrée (sans suspects) : {0}" -f (Format-Size $filteredSize))
+Write-Host ("   🎯 Gain potentiel : {0} ({1}%)" -f (Format-Size $gain), $percent)
 
-Write-Host "`n🧾 Exclusions appliquées" -ForegroundColor Cyan
-if ($ExcludeFolders.Count -gt 0) {
-    Write-Host "   📁 Dossiers exclus : $($ExcludeFolders -join ', ')"
-}
-if ($ExcludeExtensions.Count -gt 0) {
-    Write-Host "   📄 Extensions exclues : $($ExcludeExtensions -join ', ')"
-}
-
-# Suggestions d’exclusions par extension
-$filteredFilesWithExt = $filteredFiles | Where-Object { $_.Extension }
-Write-Host "🔍 Fichiers avec extension : $($filteredFilesWithExt.Count)"
-
-$heavyExtensions = $filteredFilesWithExt | Group-Object Extension | ForEach-Object {
-    $totalMB = ($_.Group | Measure-Object Length -Sum).Sum / 1MB
-    if ($totalMB -gt 1) {
-        [PSCustomObject]@{
-            Extension = $_.Name
-            TotalMB = [math]::Round($totalMB, 2)
-        }
+# --- Top 10 dossiers les plus lourds (après filtrage)
+Write-Host "`n📂 Top 10 dossiers (après filtrage)" -ForegroundColor Cyan
+$topDirs = $filteredFiles | Group-Object DirectoryName | ForEach-Object {
+    $totalBytes = ($_.Group | Measure-Object Length -Sum).Sum
+    $maxFile = $_.Group | Sort-Object Length -Descending | Select-Object -First 1
+    [PSCustomObject]@{
+        Directory        = $_.Name
+        TotalSizeBytes   = $totalBytes
+        BiggestFile      = $maxFile.FullName
+        BiggestFileSize  = $maxFile.Length
     }
-} | Sort-Object TotalMB -Descending
+} | Sort-Object TotalSizeBytes -Descending | Select-Object -First 10
 
-if ($heavyExtensions -and $heavyExtensions.Count -gt 0) {
-    Write-Host "`n💡 Suggestions d’exclusions (extensions > 1 MB)" -ForegroundColor Cyan
-    foreach ($ext in $heavyExtensions) {
-        Write-Host "   📦 $($ext.Extension) — $($ext.TotalMB) MB"
-    }
+$topDirs | ForEach-Object {
+    Write-Host ("   📁 {0} — {1} (plus gros: {2}, {3})" -f `
+        $_.Directory, (Format-Size $_.TotalSizeBytes), $_.BiggestFile, (Format-Size $_.BiggestFileSize))
 }
 
-$filteredFilesWithExt | Select-Object -First 10 | ForEach-Object {
-    Write-Host "   ➤ $($_.Name) — $($_.Extension)"
+# --- Top 10 fichiers les plus lourds (après filtrage)
+Write-Host "`n📄 Top 10 fichiers (après filtrage)" -ForegroundColor Cyan
+$topFiles = $filteredFiles | Sort-Object Length -Descending | Select-Object -First 10
+
+$topFiles | ForEach-Object {
+    Write-Host ("   📄 {0} — {1}" -f $_.FullName, (Format-Size $_.Length))
+}
+
+# --- DeepDive : liste des suspects
+if ($DeepDive) {
+    Write-Host "`n🔎 Fichiers suspects détectés" -ForegroundColor Yellow
+    $suspects = $allFiles | Where-Object {
+        $name = $_.FullName.ToLower()
+        $suspectPatterns | ForEach-Object { $name -like "*$_*" } | Where-Object { $_ }
+    }
+    $suspects | Sort-Object Length -Descending | Select-Object FullName,@{Name="Size";Expression={Format-Size $_.Length}} -First 20 |
+        ForEach-Object { Write-Host ("   ⚠️ {0} — {1}" -f $_.FullName, $_.Size) }
 }
