@@ -1,5 +1,4 @@
-# .\analyze.ps1 -ExcludeFolders @('.git', 'models','Crash Reports','ShaderCache','download\storage', 'Opera Software\Opera Stable\adblocker_data', 'Opera Software\Opera Stable\Safe Browsing', 'discord\Dictionaries', 'LibreOffice\4\updates', 'Code\User\globalStorage\github.copilot-chat', 'Opera Software\Opera Stable\Default\IndexedDB') -ExcludeExtensions @('.log','.bak', '.pak', '.pma', '.exe', '.dll', '.sqlite', '.lock', '.sst') -DeepDive
-
+# .\analyze.ps1 -ExcludeFolders @('.git', 'models','download\storage', 'Opera Software\Opera Stable\adblocker_data', 'Opera Software\Opera Stable\Safe Browsing', 'LibreOffice\4\updates', 'Code\User\globalStorage\github.copilot-chat', 'Opera Software\Opera Stable\Default\IndexedDB', 'Opera Software\Opera Stable\Default\Extensions', 'security_state', 'Stirling-PDF', 'discord', 'AutomaticDestinations', 'Code\User\globalStorage\state.vscdb') -ExcludeExtensions @('.log','.bak', '.pak', '.pma', '.exe', '.dll', '.sqlite', '.lock', '.sst', '.ldb') -DeepDive
 param(
     [string]$BasePath = "$env:APPDATA",
     [string[]]$ExcludeFolders = @(),
@@ -9,10 +8,13 @@ param(
 
 # --- Patterns suspects
 $suspectPatterns = @(
-    'cache', 'root_cache', 'log','crash','temp','report','shader','widevine',
-    'component','dump','backup','cookies','Crash Reports','GrShaderCache',
-    'ShaderCache','MediaFoundationWidevineCdm','Opera Add-ons Downloads'
+  'cache','root_cache','log','crash','temp','report','shader','widevine',
+  'component','dump','backup','cookies','Crash Reports','GrShaderCache',
+  'ShaderCache','MediaFoundationWidevineCdm','Opera Add-ons Downloads',
+  'IndexedDB','Service Worker','workspaceStorage'
 )
+
+
 
 # --- Fonction utilitaire pour afficher taille en MB ou KB
 function Format-Size {
