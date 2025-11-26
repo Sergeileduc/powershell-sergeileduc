@@ -68,11 +68,15 @@ Write-Host "✅ Variables d’environnement sauvegardées" -ForegroundColor Gree
 
 # 4. Extensions VSCode
 $extensions = code --list-extensions | Out-String
-Save -textContent $extensions -targetPath "$backupFolder\vscode-extensions.txt"
+Save -textContent $extensions -targetPath "$backupFolder\Code\vscode-extensions.txt"
 Write-Host "✅ Extensions VSCode sauvegardées" -ForegroundColor Green
 
-# 5. Réglages VSCode
+# 5. Réglages VSCode + Snippets
 Save -sourcePath "$env:APPDATA\Code\User\settings.json" -targetPath "$backupFolder\Code\User\settings.json"
+Save -sourcePath "$env:APPDATA\Code\User\snippets" -targetPath "$backupFolder\Code\User\snippets"
+Save -sourcePath "$env:APPDATA\Code\User\keybindings.json" -targetPath "$backupFolder\Code\User\keybindings.json"
+
+
 Write-Host "✅ Réglages VSCode copiés" -ForegroundColor Green
 
 # 6. Profil Git
