@@ -1,31 +1,32 @@
 Import-Module powershell-yaml
 
+# 💾=============================
+# Function: Save-Text
+# ===============================
+<#
+.SYNOPSIS
+Sauvegarde du contenu texte dans un fichier cible.
 
+.DESCRIPTION
+Cette fonction prend une chaîne de texte et l’écrit dans un fichier à l’emplacement spécifié.
+Elle crée automatiquement le dossier parent si nécessaire, et encode le fichier en UTF-8.
+
+.PARAMETER content
+Le contenu texte à sauvegarder. Peut être une chaîne simple ou multi-ligne.
+
+.PARAMETER targetPath
+Chemin absolu ou relatif du fichier dans lequel le contenu sera écrit.
+
+.EXAMPLE
+Save-Text -content "Hello world" -targetPath "backup\latest\hello.txt"
+
+.EXAMPLE
+Save-Text -content "choco list --local-only" -targetPath "backup\packages\choco.txt"
+
+.NOTES
+Le dossier parent est créé automatiquement si absent. Le fichier est écrasé s’il existe déjà.
+#>
 function Save-Text {
-    <#
-    .SYNOPSIS
-    Sauvegarde du contenu texte dans un fichier cible.
-
-    .DESCRIPTION
-    Cette fonction prend une chaîne de texte et l’écrit dans un fichier à l’emplacement spécifié.
-    Elle crée automatiquement le dossier parent si nécessaire, et encode le fichier en UTF-8.
-
-    .PARAMETER content
-    Le contenu texte à sauvegarder. Peut être une chaîne simple ou multi-ligne.
-
-    .PARAMETER targetPath
-    Chemin absolu ou relatif du fichier dans lequel le contenu sera écrit.
-
-    .EXAMPLE
-    Save-Text -content "Hello world" -targetPath "backup\latest\hello.txt"
-
-    .EXAMPLE
-    Save-Text -content "choco list --local-only" -targetPath "backup\packages\choco.txt"
-
-    .NOTES
-    Le dossier parent est créé automatiquement si absent. Le fichier est écrasé s’il existe déjà.
-    #>
-
     param (
         [Parameter(Mandatory = $true)]
         [string]$content,
@@ -46,31 +47,33 @@ function Save-Text {
     }
 }
 
+# 💾=============================
+# Function: Save-Item
+# ===============================
+<#
+.SYNOPSIS
+Copie un fichier ou un dossier vers un chemin de destination.
+
+.DESCRIPTION
+Cette fonction prend un chemin source (fichier ou dossier) et le copie vers un chemin cible.
+Elle gère la récursivité pour les dossiers et force l'écrasement si le fichier ou dossier existe déjà.
+
+.PARAMETER sourcePath
+Chemin absolu du fichier ou dossier à sauvegarder.
+
+.PARAMETER targetPath
+Chemin absolu ou relatif vers lequel le contenu doit être copié.
+
+.EXAMPLE
+Save-Item -sourcePath "C:\Users\Serge\Documents\config.json" -targetPath "backup\latest\config.json"
+
+.EXAMPLE
+Save-Item -sourcePath "C:\Users\Serge\.config" -targetPath "backup\archive\dotfiles"
+
+.NOTES
+Ne vérifie pas si le type est fichier ou dossier — utilise Copy-Item avec -Recurse pour tout.
+#>
 function Save-Item {
-    <#
-    .SYNOPSIS
-    Copie un fichier ou un dossier vers un chemin de destination.
-
-    .DESCRIPTION
-    Cette fonction prend un chemin source (fichier ou dossier) et le copie vers un chemin cible.
-    Elle gère la récursivité pour les dossiers et force l'écrasement si le fichier ou dossier existe déjà.
-
-    .PARAMETER sourcePath
-    Chemin absolu du fichier ou dossier à sauvegarder.
-
-    .PARAMETER targetPath
-    Chemin absolu ou relatif vers lequel le contenu doit être copié.
-
-    .EXAMPLE
-    Save-Item -sourcePath "C:\Users\Serge\Documents\config.json" -targetPath "backup\latest\config.json"
-
-    .EXAMPLE
-    Save-Item -sourcePath "C:\Users\Serge\.config" -targetPath "backup\archive\dotfiles"
-
-    .NOTES
-    Ne vérifie pas si le type est fichier ou dossier — utilise Copy-Item avec -Recurse pour tout.
-    #>
-
     param (
         [Parameter(Mandatory = $true)]
         [string]$sourcePath,
@@ -79,11 +82,13 @@ function Save-Item {
         [string]$targetPath
     )
 
+    # --- Guard clause : si le fichier n'existe pas, on sort
     if (-not (Test-Path $sourcePath)) {
-        Write-Warning "❌ Source introuvable : $sourcePath"
+        Write-Host "⚠️ Pas trouvé : $sourcePath" -ForegroundColor Yellow
         return
     }
 
+    # --- Comportement normal (pas besoin de else)
     try {
         Copy-Item -Path $sourcePath -Destination $targetPath -Recurse -Force
     } catch {
@@ -93,35 +98,36 @@ function Save-Item {
   Write-Host "✅ Sauvegarde : $relativeTarget" -ForegroundColor Green
 }
 
+# 💾=============================
+# Function: Save-ItemWithExclusions
+# ===============================
+<#
+.SYNOPSIS
+Copie un dossier en excluant certains fichiers ou sous-dossiers.
 
+.DESCRIPTION
+Cette fonction copie récursivement le contenu d’un dossier source vers un dossier cible,
+en excluant les fichiers ou dossiers dont le nom correspond à ceux spécifiés dans -exclusions.
+
+Le dossier cible est créé automatiquement si nécessaire. Les exclusions sont basées sur le nom exact
+(pas de wildcards ni de correspondance partielle).
+
+.PARAMETER sourcePath
+Chemin du dossier source à copier.
+
+.PARAMETER targetPath
+Chemin du dossier de destination.
+
+.PARAMETER exclusions
+Liste de noms de fichiers ou dossiers à exclure (exact match).
+
+.EXAMPLE
+Save-ItemWithExclusions -sourcePath "$env:USERPROFILE\.ssh" -targetPath "$staging\ssh" -exclusions @("known_hosts", "config.old")
+
+.NOTES
+Les exclusions ne s’appliquent que sur le nom (pas le chemin complet).
+#>
 function Save-ItemWithExclusions {
-    <#
-    .SYNOPSIS
-    Copie un dossier en excluant certains fichiers ou sous-dossiers.
-
-    .DESCRIPTION
-    Cette fonction copie récursivement le contenu d’un dossier source vers un dossier cible,
-    en excluant les fichiers ou dossiers dont le nom correspond à ceux spécifiés dans -exclusions.
-
-    Le dossier cible est créé automatiquement si nécessaire. Les exclusions sont basées sur le nom exact
-    (pas de wildcards ni de correspondance partielle).
-
-    .PARAMETER sourcePath
-    Chemin du dossier source à copier.
-
-    .PARAMETER targetPath
-    Chemin du dossier de destination.
-
-    .PARAMETER exclusions
-    Liste de noms de fichiers ou dossiers à exclure (exact match).
-
-    .EXAMPLE
-    Save-ItemWithExclusions -sourcePath "$env:USERPROFILE\.ssh" -targetPath "$staging\ssh" -exclusions @("known_hosts", "config.old")
-
-    .NOTES
-    Les exclusions ne s’appliquent que sur le nom (pas le chemin complet).
-    #>
-
     param (
         [Parameter(Mandatory = $true)]
         [string]$sourcePath,
@@ -132,11 +138,13 @@ function Save-ItemWithExclusions {
         [string[]]$exclusions
     )
 
+    # --- Guard clause : si le fichier n'existe pas, on sort
     if (-not (Test-Path $sourcePath)) {
-        Write-Warning "❌ Source introuvable : $sourcePath"
+        Write-Host "⚠️ Pas trouvé : $sourcePath" -ForegroundColor Yellow
         return
     }
 
+    # --- Comportement normal (pas besoin de else)
     $items = Get-ChildItem -Path $sourcePath -Recurse
 
     # Exclusion magique : ignore l'élément si son nom ou son chemin correspond à une règle d'exclusion.
@@ -163,42 +171,43 @@ function Save-ItemWithExclusions {
     }
 }
 
+# 💾=============================
+# Function: Save
+# ===============================
+<#
+.SYNOPSIS
+Sauvegarde du contenu texte ou copie d’un fichier/dossier, avec exclusions optionnelles.
 
+.DESCRIPTION
+Cette fonction unifie trois comportements :
+- Si -textContent est fourni, écrit le texte dans le fichier cible.
+- Si -sourcePath est fourni sans exclusions, copie le fichier ou dossier vers le chemin cible.
+- Si -sourcePath et -exclusions sont fournis, délègue à Save-ItemWithExclusions pour filtrer les fichiers.
+
+Le dossier parent est créé automatiquement si nécessaire.
+
+.PARAMETER textContent
+Contenu texte à écrire dans le fichier cible.
+
+.PARAMETER sourcePath
+Fichier ou dossier à copier.
+
+.PARAMETER targetPath
+Chemin absolu ou relatif du fichier ou dossier de destination.
+
+.PARAMETER exclusions
+Liste de noms de fichiers/dossiers à exclure (exact match).
+
+.EXAMPLE
+Save -textContent "Hello world" -targetPath "$staging\notes\hello.txt"
+
+.EXAMPLE
+Save -sourcePath "$env:USERPROFILE\.ssh" -targetPath "$staging\ssh" -exclusions @("known_hosts", "config.old")
+
+.NOTES
+Le paramètre -textContent a priorité sur -sourcePath.
+#>
 function Save {
-    <#
-    .SYNOPSIS
-    Sauvegarde du contenu texte ou copie d’un fichier/dossier, avec exclusions optionnelles.
-
-    .DESCRIPTION
-    Cette fonction unifie trois comportements :
-    - Si -textContent est fourni, écrit le texte dans le fichier cible.
-    - Si -sourcePath est fourni sans exclusions, copie le fichier ou dossier vers le chemin cible.
-    - Si -sourcePath et -exclusions sont fournis, délègue à Save-ItemWithExclusions pour filtrer les fichiers.
-
-    Le dossier parent est créé automatiquement si nécessaire.
-
-    .PARAMETER textContent
-    Contenu texte à écrire dans le fichier cible.
-
-    .PARAMETER sourcePath
-    Fichier ou dossier à copier.
-
-    .PARAMETER targetPath
-    Chemin absolu ou relatif du fichier ou dossier de destination.
-
-    .PARAMETER exclusions
-    Liste de noms de fichiers/dossiers à exclure (exact match).
-
-    .EXAMPLE
-    Save -textContent "Hello world" -targetPath "$staging\notes\hello.txt"
-
-    .EXAMPLE
-    Save -sourcePath "$env:USERPROFILE\.ssh" -targetPath "$staging\ssh" -exclusions @("known_hosts", "config.old")
-
-    .NOTES
-    Le paramètre -textContent a priorité sur -sourcePath.
-    #>
-
     param (
         [string]$sourcePath,
         [string]$textContent,
@@ -221,11 +230,14 @@ function Save {
         return
     }
 
-    if (-not $sourcePath) {
-        Write-Warning "⚠️ Aucun contenu à sauvegarder : ni -textContent ni -sourcePath n’ont été fournis."
+    # --- Guard clause : si le fichier n'existe pas, on sort
+    if (-not (Test-Path $sourcePath)) {
+        Write-Host "⚠️ Pas trouvé : $sourcePath" -ForegroundColor Yellow
+        Write-Warning "⚠️ Aucun contenu à sauvegarder : ni -textContent ni -sourcePath n'ont été fournis."
         return
     }
 
+    # --- Comportement normal (pas besoin de else)
     if ($exclusions) {
         Save-ItemWithExclusions -sourcePath $sourcePath -targetPath $targetPath -exclusions $exclusions
     }
