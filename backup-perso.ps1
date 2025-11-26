@@ -11,6 +11,7 @@
     - Fly.io (config + auth)
     - Dossier .config (avec exclusions)
     - Fichiers .env (renommés par projet)
+    - wezterm config
     - Version horodatée + version "latest"
 #>
 
@@ -96,16 +97,20 @@ Write-Host "✅ Dossier .config sauvegardé (exclusions appliquées)" -Foregroun
 Copy-EnvFiles -targetPath "$backupFolder\env" -sourcePath $devPath
 Write-Host "✅ Fichiers .env sauvegardés" -ForegroundColor Green
 
+# 11. Réglages Wezterm
+Save -sourcePath "$env:APPDATA\Code\User\.wezterm.lua" -targetPath "$backupFolder\Code\User\.wezterm.lua"
+Write-Host "✅ Réglages Wezterm copiés" -ForegroundColor Green
 
-# 11. 📊 Résumé de la sauvegarde
+
+# 📊 Résumé de la sauvegarde
 $filesCount = (Get-ChildItem $backupFolder -Recurse -File -Force).Count
 Write-Host "📊 $filesCount fichiers sauvegardés dans $backupFolder" -ForegroundColor Cyan
 
-# # 12. 🧹 Suppression du dossier de staging
+# # 🧹 Suppression du dossier de staging
 # Write-Host "🧹 Suppression du dossier de staging..."
 # Remove-Item -Path $backupFolder -Recurse -Force
 
-# 13. 🎉 Fin du script
+# 🎉 Fin du script
 if ($filesCount -eq 0) {
     Write-Host "⚠️ Aucun fichier sauvegardé — vérifie tes exclusions ou ton dossier source." -ForegroundColor Red
 } else {
