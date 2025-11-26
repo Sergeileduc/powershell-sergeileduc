@@ -1,4 +1,7 @@
-# .\analyze.ps1 -ExcludeFolders @('.git', 'models','download\storage', 'Opera Software\Opera Stable\adblocker_data', 'Opera Software\Opera Stable\Safe Browsing', 'LibreOffice\4\updates', 'Code\User\globalStorage\github.copilot-chat', 'Opera Software\Opera Stable\Default\IndexedDB', 'Opera Software\Opera Stable\Default\Extensions', 'security_state', 'Stirling-PDF', 'discord', 'AutomaticDestinations', 'Code\User\globalStorage\state.vscdb') -ExcludeExtensions @('.log','.bak', '.pak', '.pma', '.exe', '.dll', '.sqlite', '.lock', '.sst', '.ldb') -DeepDive
+# \analyze.ps1 -ExcludeFolders @('.git', 'models','download\storage', 'Opera Software\Opera Stable\adblocker_data', 'Opera Software\Opera Stable\Safe Browsing', 'LibreOffice\4\updates', 'Code\User\globalStorage\github.copilot-chat', 'Opera Software\Opera Stable\Default\IndexedDB', 'Opera Software\Opera Stable\Default\Extensions', 'security_state', 'Stirling-PDF', 'discord', 'AutomaticDestinations', 'Code\User\globalStorage') -ExcludeExtensions @('.log','.bak', '.pak', '.pma', '.exe', '.dll', '.sqlite', '.lock', '.sst', '.ldb') -DeepDive
+# 🔎=============================
+# Script: Analyze-Backup
+# ===============================
 param(
     [string]$BasePath = "$env:APPDATA",
     [string[]]$ExcludeFolders = @(),
