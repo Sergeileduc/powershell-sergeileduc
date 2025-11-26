@@ -98,8 +98,13 @@ Copy-EnvFiles -targetPath "$backupFolder\env" -sourcePath $devPath
 Write-Host "✅ Fichiers .env sauvegardés" -ForegroundColor Green
 
 # 11. Réglages Wezterm
-Save -sourcePath "$env:APPDATA\Code\User\.wezterm.lua" -targetPath "$backupFolder\Code\User\.wezterm.lua"
+Save -sourcePath "$env:USERPROFILE\.wezterm.lua" -targetPath "$backupFolder\.wezterm.lua"
 Write-Host "✅ Réglages Wezterm copiés" -ForegroundColor Green
+
+# 12. Réglages Windows Terminal
+Save -sourcePath "$env:LOCALAPPDATA\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json" `
+     -targetPath "$backupFolder\WindowsTerminal\settings.json"
+Write-Host "✅ Réglages Windows Terminal copiés" -ForegroundColor Green
 
 
 # 📊 Résumé de la sauvegarde
