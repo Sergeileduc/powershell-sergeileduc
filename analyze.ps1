@@ -1,3 +1,5 @@
+# .\analyze.ps1 -ExcludeFolders @('.git', 'models','Crash Reports','ShaderCache','download\storage', 'Opera Software\Opera Stable\adblocker_data', 'Opera Software\Opera Stable\Safe Browsing', 'discord\Dictionaries', 'LibreOffice\4\updates', 'Code\User\globalStorage\github.copilot-chat', 'Opera Software\Opera Stable\Default\IndexedDB') -ExcludeExtensions @('.log','.bak', '.pak', '.pma', '.exe', '.dll', '.sqlite', '.lock', '.sst') -DeepDive
+
 param(
     [string]$BasePath = "$env:APPDATA",
     [string[]]$ExcludeFolders = @(),
