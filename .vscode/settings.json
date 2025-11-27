@@ -32,6 +32,7 @@
         "games",
         "backup",
         "analyze",
-        "clean"
+        "clean",
+        "ytdl"
     ]
 }
