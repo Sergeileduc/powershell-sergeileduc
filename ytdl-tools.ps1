@@ -3,7 +3,9 @@ ytdl-tools.ps1 — Fonctions PowerShell pour gérer les téléchargements YouTub
 Auteur : Serge
 #>
 
-function ytdl-update {
+# 🎬==============================
+# Function: ytdl-update
+# ================================
 <#
 .SYNOPSIS
 Télécharge les vidéos récentes d’une chaîne YouTube ou playlist.
@@ -34,7 +36,7 @@ ytdl-update -reset
 ytdl-update -dryRun
 ytdl-update -quiet
 #>
-
+function ytdl-update {
     param(
         [string]$url = "https://www.youtube.com/@1minshorts/shorts",
         [int]$count = 2,
@@ -114,7 +116,9 @@ ytdl-update -quiet
     Write-Host "📂 Dossier : $videoDir"
 }
 
-function ytdl-info {
+# 🎬==============================
+# Function: ytdl-info
+# ================================
 <#
 .SYNOPSIS
 Affiche un résumé du dossier de vidéos téléchargées.
@@ -125,7 +129,7 @@ Montre le nombre total de vidéos, la taille cumulée, et la date du dernier fic
 .EXAMPLE
 ytdl-info
 #>
-
+function ytdl-info {
     $videoDir = "$HOME\Videos\ytdl"
     $files = Get-ChildItem -Path $videoDir -File
 
@@ -142,7 +146,10 @@ ytdl-info
     Write-Host "🕒 Dernier fichier : $lastDate"
 }
 
-function ytdl-list {
+
+# 🎬==============================
+# Function: ytdl-list
+# ================================
 <#
 .SYNOPSIS
 Liste les vidéos téléchargées avec leur taille et date.
@@ -153,7 +160,7 @@ Affiche chaque fichier du dossier avec son nom, sa taille en MB, et sa date de m
 .EXAMPLE
 ytdl-list
 #>
-
+function ytdl-list {
     $videoDir = "$HOME\Videos\ytdl"
     $files = Get-ChildItem -Path $videoDir -File | Sort-Object LastWriteTime -Descending
 
@@ -171,7 +178,9 @@ ytdl-list
     Write-Host "`n📦 Total : $($files.Count) fichier(s)"
 }
 
-function ytdl-clean {
+# 🧹=============================
+# Function: ytdl-clean
+# ===============================
 <#
 .SYNOPSIS
 Supprime les vidéos trop vieilles ou trop lourdes.
@@ -189,7 +198,7 @@ Taille maximale des fichiers en MB (par défaut : 100)
 ytdl-clean
 ytdl-clean -maxAgeDays 15 -maxSizeMB 50
 #>
-
+function ytdl-clean {
     param(
         [int]$maxAgeDays = 30,
         [int]$maxSizeMB = 100
@@ -215,7 +224,9 @@ ytdl-clean -maxAgeDays 15 -maxSizeMB 50
     Write-Host "`n✅ Nettoyage terminé : $($files.Count) fichier(s) supprimé(s)."
 }
 
-function ytdl-purge {
+# 🧹=============================
+# Function: ytdl-purge
+# ===============================
 <#
 .SYNOPSIS
 Supprime tous les fichiers du dossier de vidéos téléchargées.
@@ -227,7 +238,7 @@ Affiche le chemin ciblé et les fichiers supprimés. Utiliser avec précaution.
 .EXAMPLE
 ytdl-purge
 #>
-
+function ytdl-purge {
     $videoDir = "$HOME\Videos\ytdl"
 
     Write-Host "📁 Dossier ciblé : $videoDir"
