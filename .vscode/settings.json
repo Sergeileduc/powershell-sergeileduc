@@ -33,6 +33,7 @@
         "backup",
         "analyze",
         "clean",
-        "ytdl"
+        "ytdl",
+        "restore"
     ]
 }
