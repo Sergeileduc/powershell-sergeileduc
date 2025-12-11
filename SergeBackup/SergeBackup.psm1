@@ -50,84 +50,78 @@ function Save-Text {
 # 💾=============================
 # Function: Save-Item
 # ===============================
-<#
-.SYNOPSIS
-Copie un fichier ou un dossier vers un chemin de destination.
-
-.DESCRIPTION
-Cette fonction prend un chemin source (fichier ou dossier) et le copie vers un chemin cible.
-Elle gère la récursivité pour les dossiers et force l'écrasement si le fichier ou dossier existe déjà.
-
-.PARAMETER sourcePath
-Chemin absolu du fichier ou dossier à sauvegarder.
-
-.PARAMETER targetPath
-Chemin absolu ou relatif vers lequel le contenu doit être copié.
-
-.EXAMPLE
-Save-Item -sourcePath "C:\Users\Serge\Documents\config.json" -targetPath "backup\latest\config.json"
-
-.EXAMPLE
-Save-Item -sourcePath "C:\Users\Serge\.config" -targetPath "backup\archive\dotfiles"
-
-.NOTES
-Ne vérifie pas si le type est fichier ou dossier — utilise Copy-Item avec -Recurse pour tout.
-#>
 function Save-Item {
     param (
         [Parameter(Mandatory = $true)]
         [string]$sourcePath,
-
         [Parameter(Mandatory = $true)]
         [string]$targetPath
     )
 
-    # --- Guard clause : si le fichier n'existe pas, on sort
-    if (-not (Test-Path $sourcePath)) {
-        Write-Host "⚠️ Pas trouvé : $sourcePath" -ForegroundColor Yellow
+    if (-not (Test-Path -LiteralPath $sourcePath)) {
+        Write-Host "⚠️ Source introuvable : $sourcePath"
         return
     }
 
-    # --- Comportement normal (pas besoin de else)
-    try {
-        Copy-Item -Path $sourcePath -Destination $targetPath -Recurse -Force
-    } catch {
-        Write-Error "💥 Échec de la copie de '$sourcePath' vers '$targetPath' : $_"
+    # Crée le dossier général si besoin
+    if (-not (Test-Path $targetPath)) {
+        New-Item -ItemType Directory -Path $targetPath -Force | Out-Null
     }
 
-  Write-Host "✅ Sauvegarde : $relativeTarget" -ForegroundColor Green
+    $item = Get-Item -LiteralPath $sourcePath -Force
+    if ($item.PSIsContainer) {
+        # Cas dossier
+        $destDir = Join-Path $targetPath $item.Name
+        if (-not (Test-Path $destDir)) {
+            # Dossier n'existe pas → copie le dossier entier
+            Copy-Item -LiteralPath $sourcePath -Destination $targetPath -Recurse -Force
+            Write-Host "📂 Dossier copié : $sourcePath → $targetPath"
+        } else {
+            # Dossier existe déjà → copie uniquement le contenu dedans
+            Copy-Item -Path (Join-Path $sourcePath '*') -Destination $destDir -Recurse -Force
+            Write-Host "📂 Contenu fusionné : $sourcePath → $destDir"
+        }
+    } else {
+        # Cas fichier → copie tel quel dans targetPath
+        Copy-Item -LiteralPath $sourcePath -Destination $targetPath -Force
+        Write-Host "📄 Fichier copié : $sourcePath → $targetPath"
+    }
 }
 
 # 💾=============================
 # Function: Save-ItemWithExclusions
 # ===============================
-<#
-.SYNOPSIS
-Copie un dossier en excluant certains fichiers ou sous-dossiers.
-
-.DESCRIPTION
-Cette fonction copie récursivement le contenu d’un dossier source vers un dossier cible,
-en excluant les fichiers ou dossiers dont le nom correspond à ceux spécifiés dans -exclusions.
-
-Le dossier cible est créé automatiquement si nécessaire. Les exclusions sont basées sur le nom exact
-(pas de wildcards ni de correspondance partielle).
-
-.PARAMETER sourcePath
-Chemin du dossier source à copier.
-
-.PARAMETER targetPath
-Chemin du dossier de destination.
-
-.PARAMETER exclusions
-Liste de noms de fichiers ou dossiers à exclure (exact match).
-
-.EXAMPLE
-Save-ItemWithExclusions -sourcePath "$env:USERPROFILE\.ssh" -targetPath "$staging\ssh" -exclusions @("known_hosts", "config.old")
-
-.NOTES
-Les exclusions ne s’appliquent que sur le nom (pas le chemin complet).
-#>
 function Save-ItemWithExclusions {
+    <#
+    .SYNOPSIS
+        Copie le contenu d’un dossier vers une destination en excluant certains fichiers ou sous-dossiers.
+
+    .DESCRIPTION
+        Cette fonction copie récursivement le contenu d’un dossier source vers un dossier cible.
+        Les exclusions sont appliquées sur le nom exact des fichiers/dossiers ou sur des segments
+        de chemin relatifs. Le dossier cible est créé automatiquement si nécessaire.
+        Les fichiers existants sont écrasés grâce à -Force.
+
+    .PARAMETER sourcePath
+        Chemin du dossier source à copier.
+
+    .PARAMETER targetPath
+        Chemin du dossier de destination.
+
+    .PARAMETER exclusions
+        Liste de noms de fichiers ou dossiers à exclure (exact match, insensible à la casse).
+
+    .EXAMPLE
+        Save-ItemWithExclusions -sourcePath "$env:USERPROFILE\.ssh" `
+                                -targetPath "$staging\ssh" `
+                                -exclusions @("known_hosts", "config.old")
+
+        Copie le contenu de .ssh vers staging\ssh en excluant les fichiers "known_hosts" et "config.old".
+
+    .NOTES
+        - Les exclusions s’appliquent uniquement sur le nom ou sur des segments de chemin relatifs.
+        - Pas de wildcards : correspondance exacte uniquement.
+    #>
     param (
         [Parameter(Mandatory = $true)]
         [string]$sourcePath,
@@ -138,27 +132,39 @@ function Save-ItemWithExclusions {
         [string[]]$exclusions
     )
 
-    # --- Guard clause : si le fichier n'existe pas, on sort
+    # --- Guard clause : si la source n'existe pas, on sort
     if (-not (Test-Path $sourcePath)) {
         Write-Host "⚠️ Pas trouvé : $sourcePath" -ForegroundColor Yellow
         return
     }
 
-    # --- Comportement normal (pas besoin de else)
-    $items = Get-ChildItem -Path $sourcePath -Recurse
+    # Crée la destination si besoin
+    if (-not (Test-Path $targetPath)) {
+        New-Item -ItemType Directory -Path $targetPath -Force | Out-Null
+    }
 
-    # Exclusion magique : ignore l'élément si son nom ou son chemin correspond à une règle d'exclusion.
-    # Gère les cas où les fichiers sont dans des sous-dossiers (genre "bin/flyctl.exe").
+    # Récupère tous les items du dossier source
+    $items = Get-ChildItem -Path $sourcePath -Recurse -Force
+
     foreach ($item in $items) {
-        if ($exclusions | Where-Object { 
-            $_ -ieq $item.Name -or 
-            $item.FullName -like "*\$_" -or 
-            $item.FullName -like "*\$_\*" -or 
-            $item.FullName -like "*\$_.*"
-        }) {
+        # Vérifie si l’élément est exclu
+        $isExcluded = $false
+        foreach ($ex in $exclusions) {
+            if ($item.Name -ieq $ex) {
+                $isExcluded = $true; break
+            }
+            $relativePath = $item.FullName.Substring($sourcePath.Length).TrimStart("\")
+            if ($relativePath -like "*\$ex*" -or $relativePath -like "$ex*") {
+                $isExcluded = $true; break
+            }
+        }
+
+        if ($isExcluded) {
+            # Write-Host "⏭️ Exclu : $($item.FullName)" -ForegroundColor DarkGray
             continue
         }
 
+        # Construit le chemin de destination relatif
         $relative = $item.FullName.Substring($sourcePath.Length).TrimStart("\")
         $dest = Join-Path $targetPath $relative
         $destParent = Split-Path $dest -Parent
@@ -167,47 +173,48 @@ function Save-ItemWithExclusions {
             New-Item -ItemType Directory -Path $destParent -Force | Out-Null
         }
 
-        Copy-Item -Path $item.FullName -Destination $dest -Force
+        try {
+            Copy-Item -LiteralPath $item.FullName -Destination $dest -Force
+            # Write-Host "✅ Copié : $relative" -ForegroundColor Green
+        }
+        catch {
+            Write-Error "💥 Échec de la copie de '$($item.FullName)' vers '$dest' : $_"
+        }
     }
 }
 
 # 💾=============================
 # Function: Save
 # ===============================
-<#
-.SYNOPSIS
-Sauvegarde du contenu texte ou copie d’un fichier/dossier, avec exclusions optionnelles.
-
-.DESCRIPTION
-Cette fonction unifie trois comportements :
-- Si -textContent est fourni, écrit le texte dans le fichier cible.
-- Si -sourcePath est fourni sans exclusions, copie le fichier ou dossier vers le chemin cible.
-- Si -sourcePath et -exclusions sont fournis, délègue à Save-ItemWithExclusions pour filtrer les fichiers.
-
-Le dossier parent est créé automatiquement si nécessaire.
-
-.PARAMETER textContent
-Contenu texte à écrire dans le fichier cible.
-
-.PARAMETER sourcePath
-Fichier ou dossier à copier.
-
-.PARAMETER targetPath
-Chemin absolu ou relatif du fichier ou dossier de destination.
-
-.PARAMETER exclusions
-Liste de noms de fichiers/dossiers à exclure (exact match).
-
-.EXAMPLE
-Save -textContent "Hello world" -targetPath "$staging\notes\hello.txt"
-
-.EXAMPLE
-Save -sourcePath "$env:USERPROFILE\.ssh" -targetPath "$staging\ssh" -exclusions @("known_hosts", "config.old")
-
-.NOTES
-Le paramètre -textContent a priorité sur -sourcePath.
-#>
 function Save {
+    <#
+    .SYNOPSIS
+        Sauvegarde un contenu texte ou copie un fichier/dossier vers une destination.
+
+    .DESCRIPTION
+        - Si -textContent est fourni, écrit le texte dans le fichier cible.
+        - Sinon, copie le fichier ou le dossier source vers la destination.
+        - Si -exclusions est fourni, délègue à Save-ItemWithExclusions.
+        - Sinon, délègue à Save-Item pour garantir un comportement prévisible.
+
+    .PARAMETER sourcePath
+        Chemin source à copier (fichier ou dossier).
+
+    .PARAMETER textContent
+        Contenu texte à écrire directement dans le fichier cible.
+
+    .PARAMETER targetPath
+        Chemin de destination (obligatoire).
+
+    .PARAMETER exclusions
+        Liste d’exclusions à appliquer lors de la copie.
+
+    .EXAMPLE
+        Save -sourcePath "C:\Games\Skyrim\Saves" -targetPath "D:\Staging\Skyrim"
+
+    .EXAMPLE
+        Save -textContent "Hello world" -targetPath "D:\Notes\hello.txt"
+    #>
     param (
         [string]$sourcePath,
         [string]$textContent,
@@ -224,85 +231,76 @@ function Save {
     if ($textContent) {
         try {
             $textContent | Out-File -FilePath $targetPath -Encoding UTF8
+            Write-Host "✅ Texte écrit dans : $targetPath" -ForegroundColor Green
         } catch {
             Write-Error "💥 Échec de l'écriture dans '$targetPath' : $_"
         }
         return
     }
 
-    # --- Guard clause : si le fichier n'existe pas, on sort
     if (-not (Test-Path $sourcePath)) {
         Write-Host "⚠️ Pas trouvé : $sourcePath" -ForegroundColor Yellow
         Write-Warning "⚠️ Aucun contenu à sauvegarder : ni -textContent ni -sourcePath n'ont été fournis."
         return
     }
 
-    # --- Comportement normal (pas besoin de else)
     if ($exclusions) {
         Save-ItemWithExclusions -sourcePath $sourcePath -targetPath $targetPath -exclusions $exclusions
     }
     else {
-        try {
-            Copy-Item -Path $sourcePath -Destination $targetPath -Recurse -Force
-        } catch {
-            Write-Error "💥 Échec de la copie de '$sourcePath' vers '$targetPath' : $_"
-        }
+        Save-Item -sourcePath $sourcePath -targetPath $targetPath
     }
 }
 
-
 # 💾=============================
 # Function: Save-AppData
 # ===============================
-# 💾=============================
-# Function: Save-AppData
-# ===============================
-<#
-.SYNOPSIS
-Sauvegarde sélective du dossier AppData\Roaming avec exclusions par défaut et personnalisées.
+    function Save-AppData {
+    <#
+    .SYNOPSIS
+    Sauvegarde sélective du dossier AppData\Roaming avec exclusions par défaut et personnalisées.
 
-.DESCRIPTION
-Cette fonction copie le contenu du dossier AppData\Roaming vers un chemin de destination,
-en excluant automatiquement les fichiers et dossiers considérés comme non critiques
-(caches, logs, extensions temporaires, etc.).  
-Elle permet également de spécifier des exclusions supplémentaires au moment de l’appel
-pour adapter le filtrage à des besoins particuliers (par ex. Opera, Discord, Copilot).
+    .DESCRIPTION
+    Cette fonction copie le contenu du dossier AppData\Roaming vers un chemin de destination,
+    en excluant automatiquement les fichiers et dossiers considérés comme non critiques
+    (caches, logs, extensions temporaires, etc.).  
+    Elle permet également de spécifier des exclusions supplémentaires au moment de l’appel
+    pour adapter le filtrage à des besoins particuliers (par ex. Opera, Discord, Copilot).
 
-Le résumé affiché indique la taille totale du dossier AppData, la taille réellement sauvegardée
-après filtrage, et le gain potentiel obtenu grâce aux exclusions.
+    Le résumé affiché indique la taille totale du dossier AppData, la taille réellement sauvegardée
+    après filtrage, et le gain potentiel obtenu grâce aux exclusions.
 
-.PARAMETER TargetPath
-Chemin absolu ou relatif du dossier de destination où sera sauvegardé AppData\Roaming.
+    .PARAMETER TargetPath
+    Chemin absolu ou relatif du dossier de destination où sera sauvegardé AppData\Roaming.
 
-.PARAMETER ExcludeFolders
-Liste de dossiers à exclure explicitement (exact match ou sous-chemin).
-Exemple : @("discord","Stirling-PDF","Code\User\globalStorage")
+    .PARAMETER ExcludeFolders
+    Liste de dossiers à exclure explicitement (exact match ou sous-chemin).
+    Exemple : @("discord","Stirling-PDF","Code\User\globalStorage")
 
-.PARAMETER ExcludeExtensions
-Liste d’extensions de fichiers à exclure explicitement.
-Exemple : @(".log",".bak",".dll",".exe",".sqlite",".ldb")
+    .PARAMETER ExcludeExtensions
+    Liste d’extensions de fichiers à exclure explicitement.
+    Exemple : @(".log",".bak",".dll",".exe",".sqlite",".ldb")
 
-.EXAMPLE
-Save-AppData -TargetPath "backup\AppData"
+    .EXAMPLE
+    Save-AppData -TargetPath "backup\AppData"
 
-Sauvegarde AppData\Roaming vers le dossier "backup\AppData" en appliquant uniquement
-les exclusions par défaut (caches, logs, extensions temporaires).
+    Sauvegarde AppData\Roaming vers le dossier "backup\AppData" en appliquant uniquement
+    les exclusions par défaut (caches, logs, extensions temporaires).
 
-.EXAMPLE
-Save-AppData -TargetPath "backup\AppData" `
-             -ExcludeFolders @("discord","Code\User\globalStorage") `
-             -ExcludeExtensions @(".pak",".pma")
+    .EXAMPLE
+    Save-AppData -TargetPath "backup\AppData" `
+                -ExcludeFolders @("discord","Code\User\globalStorage") `
+                -ExcludeExtensions @(".pak",".pma")
 
-Sauvegarde AppData\Roaming vers "backup\AppData" en excluant en plus les dossiers
-"discord" et "Code\User\globalStorage", ainsi que les fichiers .pak et .pma.
+    Sauvegarde AppData\Roaming vers "backup\AppData" en excluant en plus les dossiers
+    "discord" et "Code\User\globalStorage", ainsi que les fichiers .pak et .pma.
 
-.NOTES
-- Les exclusions par défaut incluent notamment : Cache, Temp, GPUCache, logs, crash reports,
-  fichiers Widevine, IndexedDB, etc.
-- La fonction affiche uniquement un résumé global (taille totale vs taille sauvegardée).
-- Les symlinks OneDrive ne sont pas suivis par défaut, sauf si explicitement inclus.
-#>
-function Save-AppData {
+    .NOTES
+    - Les exclusions par défaut incluent notamment : Cache, Temp, GPUCache, logs, crash reports,
+    fichiers Widevine, IndexedDB, etc.
+    - La fonction affiche uniquement un résumé global (taille totale vs taille sauvegardée).
+    - Les symlinks OneDrive ne sont pas suivis par défaut, sauf si explicitement inclus.
+    #>
     param(
         [string]$TargetPath,
         [string[]]$ExcludeFolders = @(),
@@ -536,9 +534,17 @@ function Invoke-BackupEnv {
 
     .PARAMETER Path
         Dossier racine dans lequel Init-BackupFolder créera le dossier de sauvegarde. Par défaut : $env:USERPROFILE\Backups.
+    
+    .PARAMETER IncludeAppData
+        Active la sauvegarde du répertoire %APPDATA%.
+        - Si présent : transmet le flag au script backup-perso.ps1.
+        - Si absent : ignore la sauvegarde AppData pour accélérer le backup.
+
 
     .EXAMPLE
-        Invoke-BackupEnv -Name 'env' -Path 'D:\Backups'
+        Invoke-BackupEnv -Name 'env' -Path 'D:\Backups' -IncludeAppData
+        Lance le backup environnemental en incluant la sauvegarde de %APPDATA%.
+
 
     .EXAMPLE
         Invoke-BackupEnv -BackupFolder 'D:\Backups\env_2025-11-18_16-11'
@@ -547,7 +553,8 @@ function Invoke-BackupEnv {
     param (
         [string]$BackupFolder,
         [string]$Name,
-        [string]$Path = "$env:USERPROFILE\Backups"
+        [string]$Path = "$env:USERPROFILE\Backups",
+        [switch]$IncludeAppData
     )
 
     $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\backup-perso.ps1"
@@ -557,11 +564,12 @@ function Invoke-BackupEnv {
     }
 
     $invokeParams = @{
-        Name         = $Name
-        Path         = $Path
+        Name = $Name
+        Path = $Path
     }
     if ($BackupFolder) { $invokeParams.BackupFolder = $BackupFolder }
     if ($DryRun)       { $invokeParams.DryRun       = $true }
+    if ($IncludeAppData) { $invokeParams.IncludeAppData = $true }
 
     & $scriptPath @invokeParams
 }

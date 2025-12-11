@@ -1,7 +1,7 @@
 param (
-    [string]$BackupFolder,
-    [string]$Name = 'env-perso-by-serge',
-    [string]$Path = "$env:USERPROFILE\Backups",
+    [string]$LocalRoot   = "$env:USERPROFILE\MyBackups",
+    [string]$Name        = 'env-perso',
+    [string]$CloudRoot   = "$env:USERPROFILE\OneDrive\Documents\AAA-important\geek\backup",
     [switch]$IncludeAppData
 )
 # SaveAppdata takes a long time and is not always necessary.
@@ -60,18 +60,66 @@ param (
 # # Sécurité et cohérence
 # Set-StrictMode -Version Latest
 
+
+function Finalize-Env {
+    param(
+        [string]$LocalFolder,
+        [string]$CloudRoot = "$env:USERPROFILE\OneDrive\Documents\AAA-important\geek\backup",
+        [string]$Name = "env-perso",
+        [int]$Rotation = 3
+    )
+
+    $timestamp = Get-Date -Format "yyyy-MM-dd_HHmm"
+    $destRoot  = Join-Path $CloudRoot "env"
+    $latest    = Join-Path $destRoot "latest"
+    $snapshot  = Join-Path $destRoot $timestamp
+
+    Write-Host "📂 Finalisation ENV '$Name' → $latest et $snapshot"
+
+    # Prune le dossier latest avant copie
+    if (Test-Path $latest) {
+        Remove-Item -LiteralPath $latest -Recurse -Force
+        Write-Host "🧹 Dossier latest Env nettoyé."
+    }
+
+    foreach ($p in @($latest, $snapshot)) {
+        if (-not (Test-Path $p)) {
+            New-Item -ItemType Directory -Path $p -Force | Out-Null
+        }
+    }
+
+    # Copie miroir vers latest
+    Copy-Item -Path "$LocalFolder\*" -Destination $latest -Recurse -Force
+
+    # Copie snapshot horodaté
+    Copy-Item -Path "$LocalFolder\*" -Destination $snapshot -Recurse -Force
+
+    # Rotation : supprime les snapshots les plus anciens
+    $snapshots = Get-ChildItem $destRoot -Directory |
+                 Where-Object { $_.Name -match '^\d{4}-\d{2}-\d{2}_\d{4}$' } |
+                 Sort-Object Name
+    if ($snapshots.Count -gt $Rotation) {
+        $toDelete = $snapshots | Select-Object -First ($snapshots.Count - $Rotation)
+        foreach ($d in $toDelete) {
+            Write-Host "🗑️ Suppression snapshot ancien : $($d.FullName)"
+            Remove-Item $d.FullName -Recurse -Force
+        }
+    }
+}
+
+
 # Variables perso
 $devPath = Join-Path -Path $env:USERPROFILE -ChildPath "Dev"
 
 # Chemin vers le dossier OneDrive Documents
-$oneDriveDocs = Join-Path "$env:USERPROFILE\OneDrive\Documents" "Scripts\Powershell"
+$oneDriveScripts = Join-Path "$env:USERPROFILE\OneDrive\Documents" "Scripts\Powershell"
 # Importe les fonctions
-Import-Module (Join-Path $oneDriveDocs "SergeBackup")
+Import-Module (Join-Path $oneDriveScripts "SergeBackup")
 
 
 # Dossier local
 if (-not $BackupFolder) {
-    $BackupFolder = Init-BackupFolder -folderName $Name -customPath $Path
+    $BackupFolder = Init-BackupFolder -folderName $Name -customPath $LocalRoot
 }
 Write-Host "📂 Dossier de backup créé : $BackupFolder" -ForegroundColor Cyan
 
@@ -112,14 +160,19 @@ Write-Host "✅ Extensions VSCode sauvegardées" -ForegroundColor Green
 
 # 5. Réglages VSCode + Snippets
 Save -sourcePath "$env:APPDATA\Code\User\settings.json" -targetPath "$BackupFolder\Code\User\settings.json"
-Save -sourcePath "$env:APPDATA\Code\User\snippets" -targetPath "$BackupFolder\Code\User\snippets"
 Save -sourcePath "$env:APPDATA\Code\User\keybindings.json" -targetPath "$BackupFolder\Code\User\keybindings.json"
+if (Test-Path "$env:APPDATA\Code\User\snippets") {
+    Save -sourcePath "$env:APPDATA\Code\User\snippets" -targetPath "$BackupFolder\Code\User\snippets"
+} else {
+    Write-Host "⚠️ Dossier snippets absent, rien à sauvegarder."
+}
+
 
 
 Write-Host "✅ Réglages VSCode copiés" -ForegroundColor Green
 
 # 6. Profil Git
-Save -sourcePath "$env:USERPROFILE\.gitconfig" -targetPath "$BackupFolder\.gitconfig"
+Save -sourcePath "$env:USERPROFILE\.gitconfig" -targetPath "$BackupFolder\"
 Write-Host "✅ Fichier .gitconfig sauvegardé" -ForegroundColor Green
 
 # 7. Clés SSH
@@ -141,7 +194,7 @@ Copy-EnvFiles -targetPath "$BackupFolder\env" -sourcePath $devPath
 Write-Host "✅ Fichiers .env sauvegardés" -ForegroundColor Green
 
 # 11. Réglages Wezterm
-Save -sourcePath "$env:USERPROFILE\.wezterm.lua" -targetPath "$BackupFolder\.wezterm.lua"
+Save -sourcePath "$env:USERPROFILE\.wezterm.lua" -targetPath "$BackupFolder"
 Write-Host "✅ Réglages Wezterm copiés" -ForegroundColor Green
 
 # 12. Réglages Windows Terminal
@@ -198,3 +251,6 @@ if ($filesCount -eq 0) {
 } else {
     Write-Host "🎉 Sauvegarde complète terminée avec succès !" -ForegroundColor Green
 }
+
+Finalize-Env -LocalFolder $BackupFolder -CloudRoot $CloudRoot -Rotation $Rotation
+Write-Host "✅ Backup ENV terminé."
