@@ -113,6 +113,37 @@ Save -sourcePath "$env:LOCALAPPDATA\Packages\Microsoft.WindowsTerminal_8wekyb3d8
      -targetPath "$BackupFolder\WindowsTerminal\settings.json"
 Write-Host "✅ Réglages Windows Terminal copiés" -ForegroundColor Green
 
+# 13. AppData Roaming (sélection)
+Save-AppData `
+    -TargetPath "$BackupFolder\AppData" `
+    -ExcludeFolders @(
+        '.git',
+        'models',
+        'download\storage',
+        'LibreOffice\4\updates',
+        'security_state',
+        'Stirling-PDF',
+        'discord',
+        'AutomaticDestinations',
+        'Code\User\globalStorage',
+        'Code\User\globalStorage\github.copilot-chat',
+        'Opera Software\Opera Stable\adblocker_data',
+        'Opera Software\Opera Stable\Safe Browsing',
+        'Opera Software\Opera Stable\Default\IndexedDB',
+        'Opera Software\Opera Stable\Default\Extensions'
+    ) `
+    -ExcludeExtensions @(
+        '.log',
+        '.bak',
+        '.pak',
+        '.pma',
+        '.exe',
+        '.dll',
+        '.sqlite',
+        '.lock',
+        '.sst',
+        '.ldb'
+    )
 
 # 📊 Résumé de la sauvegarde
 $filesCount = (Get-ChildItem $BackupFolder -Recurse -File -Force).Count
