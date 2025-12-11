@@ -1,7 +1,17 @@
+param (
+    [string]$BackupFolder,
+    [string]$Name = 'env-perso-by-serge',
+    [string]$Path = "$env:USERPROFILE\Backups",
+    [switch]$IncludeAppData
+)
+# SaveAppdata takes a long time and is not always necessary.
+
 <#
   .SYNOPSIS
   Script de sauvegarde de l'environnement de développement
-  Destination : OneDrive\Documents\AAA-important\geek\backup\
+  Destination par défaut : $env:USERPROFILE\Backups
+  Copie vers OneDrive\Documents\AAA-important\geek\backup\
+
   Sauvegarde :
     - Chocolatey
     - pip
@@ -12,14 +22,40 @@
     - Dossier .config (avec exclusions)
     - Fichiers .env (renommés par projet)
     - wezterm config
+    - AppData (complet ou ciblé, selon flag)
     - Version horodatée + version "latest"
-#>
 
-param (
-    [string]$BackupFolder,
-    [string]$Name = 'env',
-    [string]$Path = "$env:USERPROFILE\Backups"
-)
+  .PARAMETER BackupFolder
+  Nom du dossier de backup (sera créé sous le chemin défini par -Path).
+
+  .PARAMETER Name
+  Nom logique de la sauvegarde (par défaut : 'env').
+
+  .PARAMETER Path
+  Chemin racine où stocker les backups (par défaut : $env:USERPROFILE\Backups).
+
+  .PARAMETER IncludeAppData
+  Active la sauvegarde du répertoire %APPDATA%.
+  - Si présent : copie tout %APPDATA% (hors exclusions éventuelles).
+  - Si absent : ignore la sauvegarde AppData pour accélérer le backup.
+
+  .EXAMPLE
+  .\backup-perso.ps1
+  Lance le backup standard sans inclure AppData.
+
+  .EXAMPLE
+  .\backup-perso.ps1 -IncludeAppData
+  Lance le backup complet en incluant la sauvegarde de %APPDATA%.
+
+  .EXAMPLE
+  .\backup-perso.ps1 -BackupFolder mybackup -Name dev -Path "D:\Backups"
+  Lance le backup nommé 'dev' dans D:\Backups\mybackup.
+
+  .NOTES
+  Attention : %APPDATA% peut contenir un grand nombre de petits fichiers (caches, logs, profils).
+  La sauvegarde peut donc prendre plusieurs minutes et générer un volume conséquent.
+  Il est recommandé d’utiliser des exclusions ciblées pour éviter de copier des données inutiles.
+#>
 
 # # Sécurité et cohérence
 # Set-StrictMode -Version Latest
@@ -114,36 +150,39 @@ Save -sourcePath "$env:LOCALAPPDATA\Packages\Microsoft.WindowsTerminal_8wekyb3d8
 Write-Host "✅ Réglages Windows Terminal copiés" -ForegroundColor Green
 
 # 13. AppData Roaming (sélection)
-Save-AppData `
-    -TargetPath "$BackupFolder\AppData" `
-    -ExcludeFolders @(
-        '.git',
-        'models',
-        'download\storage',
-        'LibreOffice\4\updates',
-        'security_state',
-        'Stirling-PDF',
-        'discord',
-        'AutomaticDestinations',
-        'Code\User\globalStorage',
-        'Code\User\globalStorage\github.copilot-chat',
-        'Opera Software\Opera Stable\adblocker_data',
-        'Opera Software\Opera Stable\Safe Browsing',
-        'Opera Software\Opera Stable\Default\IndexedDB',
-        'Opera Software\Opera Stable\Default\Extensions'
-    ) `
-    -ExcludeExtensions @(
-        '.log',
-        '.bak',
-        '.pak',
-        '.pma',
-        '.exe',
-        '.dll',
-        '.sqlite',
-        '.lock',
-        '.sst',
-        '.ldb'
-    )
+if ($IncludeAppData) {
+        Save-AppData `
+        -TargetPath "$BackupFolder\AppData" `
+        -ExcludeFolders @(
+            '.git',
+            'models',
+            'download\storage',
+            'LibreOffice\4\updates',
+            'security_state',
+            'Stirling-PDF',
+            'discord',
+            'AutomaticDestinations',
+            'Code\User\globalStorage',
+            'Code\User\globalStorage\github.copilot-chat',
+            'Opera Software\Opera Stable\adblocker_data',
+            'Opera Software\Opera Stable\Safe Browsing',
+            'Opera Software\Opera Stable\Default\IndexedDB',
+            'Opera Software\Opera Stable\Default\Extensions'
+        ) `
+        -ExcludeExtensions @(
+            '.log',
+            '.bak',
+            '.pak',
+            '.pma',
+            '.exe',
+            '.dll',
+            '.sqlite',
+            '.lock',
+            '.sst',
+            '.ldb'
+        )
+}
+
 
 # 📊 Résumé de la sauvegarde
 $filesCount = (Get-ChildItem $BackupFolder -Recurse -File -Force).Count
