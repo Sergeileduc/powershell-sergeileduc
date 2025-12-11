@@ -251,6 +251,115 @@ function Save {
 }
 
 
+# 💾=============================
+# Function: Save-AppData
+# ===============================
+# 💾=============================
+# Function: Save-AppData
+# ===============================
+<#
+.SYNOPSIS
+Sauvegarde sélective du dossier AppData\Roaming avec exclusions par défaut et personnalisées.
+
+.DESCRIPTION
+Cette fonction copie le contenu du dossier AppData\Roaming vers un chemin de destination,
+en excluant automatiquement les fichiers et dossiers considérés comme non critiques
+(caches, logs, extensions temporaires, etc.).  
+Elle permet également de spécifier des exclusions supplémentaires au moment de l’appel
+pour adapter le filtrage à des besoins particuliers (par ex. Opera, Discord, Copilot).
+
+Le résumé affiché indique la taille totale du dossier AppData, la taille réellement sauvegardée
+après filtrage, et le gain potentiel obtenu grâce aux exclusions.
+
+.PARAMETER TargetPath
+Chemin absolu ou relatif du dossier de destination où sera sauvegardé AppData\Roaming.
+
+.PARAMETER ExcludeFolders
+Liste de dossiers à exclure explicitement (exact match ou sous-chemin).
+Exemple : @("discord","Stirling-PDF","Code\User\globalStorage")
+
+.PARAMETER ExcludeExtensions
+Liste d’extensions de fichiers à exclure explicitement.
+Exemple : @(".log",".bak",".dll",".exe",".sqlite",".ldb")
+
+.EXAMPLE
+Save-AppData -TargetPath "backup\AppData"
+
+Sauvegarde AppData\Roaming vers le dossier "backup\AppData" en appliquant uniquement
+les exclusions par défaut (caches, logs, extensions temporaires).
+
+.EXAMPLE
+Save-AppData -TargetPath "backup\AppData" `
+             -ExcludeFolders @("discord","Code\User\globalStorage") `
+             -ExcludeExtensions @(".pak",".pma")
+
+Sauvegarde AppData\Roaming vers "backup\AppData" en excluant en plus les dossiers
+"discord" et "Code\User\globalStorage", ainsi que les fichiers .pak et .pma.
+
+.NOTES
+- Les exclusions par défaut incluent notamment : Cache, Temp, GPUCache, logs, crash reports,
+  fichiers Widevine, IndexedDB, etc.
+- La fonction affiche uniquement un résumé global (taille totale vs taille sauvegardée).
+- Les symlinks OneDrive ne sont pas suivis par défaut, sauf si explicitement inclus.
+#>
+function Save-AppData {
+    param(
+        [string]$TargetPath,
+        [string[]]$ExcludeFolders = @(),
+        [string[]]$ExcludeExtensions = @()
+    )
+
+    $BasePath = "$env:APPDATA"
+
+    $suspectPatterns = @(
+        'cache','root_cache','log','crash','temp','report','shader','widevine',
+        'component','dump','backup','cookies','Crash Reports','GrShaderCache',
+        'ShaderCache','MediaFoundationWidevineCdm','Opera Add-ons Downloads',
+        'IndexedDB','Service Worker','workspaceStorage'
+    )
+
+    function Format-Size {
+        param([long]$bytes)
+        if ($bytes -ge 1MB) { "{0:N2} MB" -f ($bytes / 1MB) }
+        else { "{0:N0} KB" -f ($bytes / 1KB) }
+    }
+
+    $allFiles = Get-ChildItem $BasePath -Recurse -File -ErrorAction SilentlyContinue
+    $filteredFiles = @()
+
+    foreach ($file in $allFiles) {
+        $dir = $file.DirectoryName.ToLower()
+        $ext = $file.Extension.ToLower()
+        $name = $file.FullName.ToLower()
+
+        $excludeDirMatch = $false
+        foreach ($folder in $ExcludeFolders) {
+            if ($dir -like "*$folder*") { $excludeDirMatch = $true; break }
+        }
+
+        $excludeExtMatch = $ExcludeExtensions -contains $ext
+
+        $excludePatternMatch = $false
+        foreach ($pattern in $suspectPatterns) {
+            if ($name -like "*$pattern*") { $excludePatternMatch = $true; break }
+        }
+
+        if (-not $excludeDirMatch -and -not $excludeExtMatch -and -not $excludePatternMatch) {
+            $filteredFiles += $file
+            $dest = Join-Path $TargetPath ($file.FullName.Substring($BasePath.Length).TrimStart("\"))
+            $destParent = Split-Path $dest -Parent
+            if (-not (Test-Path $destParent)) { New-Item -ItemType Directory -Path $destParent -Force | Out-Null }
+            Copy-Item -Path $file.FullName -Destination $dest -Force
+        }
+    }
+
+    $totalSize = ($allFiles | Measure-Object Length -Sum).Sum
+    $filteredSize = ($filteredFiles | Measure-Object Length -Sum).Sum
+
+    Write-Host ("✅ Sauvegarde AppData terminée : {0} copiés (sur {1})" -f (Format-Size $filteredSize), (Format-Size $totalSize)) -ForegroundColor Green
+}
+
+
 <#
 .SYNOPSIS
 Copie tous les fichiers .env* depuis un dossier source vers un dossier cible, en conservant la structure relative.
