@@ -159,10 +159,10 @@ Save -textContent $extensions -targetPath "$BackupFolder\Code\vscode-extensions.
 Write-Host "✅ Extensions VSCode sauvegardées" -ForegroundColor Green
 
 # 5. Réglages VSCode + Snippets
-Save -sourcePath "$env:APPDATA\Code\User\settings.json" -targetPath "$BackupFolder\Code\User\settings.json"
-Save -sourcePath "$env:APPDATA\Code\User\keybindings.json" -targetPath "$BackupFolder\Code\User\keybindings.json"
+Save -sourcePath "$env:APPDATA\Code\User\settings.json" -targetPath "$BackupFolder\Code\User\"
+Save -sourcePath "$env:APPDATA\Code\User\keybindings.json" -targetPath "$BackupFolder\Code\User\"
 if (Test-Path "$env:APPDATA\Code\User\snippets") {
-    Save -sourcePath "$env:APPDATA\Code\User\snippets" -targetPath "$BackupFolder\Code\User\snippets"
+    Save -sourcePath "$env:APPDATA\Code\User\snippets" -targetPath "$BackupFolder\Code\User\"
 } else {
     Write-Host "⚠️ Dossier snippets absent, rien à sauvegarder."
 }
@@ -173,6 +173,8 @@ Write-Host "✅ Réglages VSCode copiés" -ForegroundColor Green
 
 # 6. Profil Git
 Save -sourcePath "$env:USERPROFILE\.gitconfig" -targetPath "$BackupFolder\"
+# Rendre le fichier visible dans le backup
+(Get-Item "$BackupFolder\.gitconfig" -Force).Attributes = (Get-Item "$BackupFolder\.gitconfig" -Force).Attributes -bxor [System.IO.FileAttributes]::Hidden
 Write-Host "✅ Fichier .gitconfig sauvegardé" -ForegroundColor Green
 
 # 7. Clés SSH
@@ -186,7 +188,7 @@ Save -sourcePath "$env:USERPROFILE\.fly" -targetPath "$BackupFolder\fly" -exclus
 Write-Host "✅ Config Fly.io sauvegardée (sans le dossier bin ni les exécutables)" -ForegroundColor Green
 
 # 9. Dossier .config (avec exclusions)
-Save -sourcePath "$env:USERPROFILE\.config" -targetPath "$BackupFolder\config" -exclusions @("__pycache__", "cache", "temp")
+Save -sourcePath "$env:USERPROFILE\.config" -targetPath "$BackupFolder\.config" -exclusions @("__pycache__", "cache", "temp")
 Write-Host "✅ Dossier .config sauvegardé (exclusions appliquées)" -ForegroundColor Green
 
 # 10. Fichiers .env (renommés par projet)
@@ -195,11 +197,12 @@ Write-Host "✅ Fichiers .env sauvegardés" -ForegroundColor Green
 
 # 11. Réglages Wezterm
 Save -sourcePath "$env:USERPROFILE\.wezterm.lua" -targetPath "$BackupFolder"
+(Get-Item "$BackupFolder\.wezterm.lua" -Force).Attributes = (Get-Item "$BackupFolder\.wezterm.lua" -Force).Attributes -bxor [System.IO.FileAttributes]::Hidden
 Write-Host "✅ Réglages Wezterm copiés" -ForegroundColor Green
 
 # 12. Réglages Windows Terminal
 Save -sourcePath "$env:LOCALAPPDATA\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json" `
-     -targetPath "$BackupFolder\WindowsTerminal\settings.json"
+     -targetPath "$BackupFolder\WindowsTerminal\"
 Write-Host "✅ Réglages Windows Terminal copiés" -ForegroundColor Green
 
 # 13. AppData Roaming (sélection)
