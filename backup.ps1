@@ -1,5 +1,5 @@
 param (
-    [ValidateSet("env", "games", "all")]
+    [ValidateSet("env", "envappdata", "games", "all")]
     [string]$Section = "all"
 )
 
@@ -29,25 +29,27 @@ Import-Module (Join-Path $oneDriveScripts "SergeBackup")
 # 📁 Initialisation du dossier de backup/staging
 $backupFolder = Init-BackupFolder -folderName "MyBackups"
 
+# 📁 Dossier final de destination des backups -> à changer selon vos préférences
+$CloudDir = "$env:USERPROFILE\OneDrive\Documents\AAA-important\geek\backup"
+
 # 🔁 Exécution des blocs selon la section
 switch ($Section) {
     'env' {
-        Invoke-BackupEnv -BackupFolder $backupFolder
+        Invoke-BackupEnv -LocalRoot $backupFolder -Name "env-perso" -CloudRoot $CloudDir
     }
     'envappdata' {
-        Invoke-BackupEnv -BackupFolder $backupFolder -IncludeAppData
+        Invoke-BackupEnv -LocalRoot $backupFolder -Name "env-perso" -CloudRoot $CloudDir -IncludeAppData
     }
     'games' {
-        Invoke-BackupGames -BackupFolder $backupFolder
+        Invoke-BackupGames -LocalRoot $backupFolder -Name "games-perso" -CloudRoot $CloudDir
     }
     "all"   {
-        Invoke-BackupGames -BackupFolder $backupFolder
-        Invoke-BackupEnv -BackupFolder $backupFolder  -IncludeAppData
+        Invoke-BackupGames -LocalRoot $backupFolder -Name "games-perso" -CloudRoot $CloudDir
+        Invoke-BackupEnv -LocalRoot $backupFolder -Name "env-perso" -CloudRoot $CloudDir -IncludeAppData
     }
 }
 
 # Fin du script
-$fileCount = (Get-ChildItem -Recurse $target).Count
+$fileCount = (Get-ChildItem -Recurse "$CloudDir\").Count
 
-Write-Host "📊 $fileCount fichiers sauvegardés dans :"
-Write-Host "   $target"
+Write-Host "Fin du backup. Total fichiers sauvegardés : $fileCount" -ForegroundColor Green

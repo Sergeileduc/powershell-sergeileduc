@@ -321,6 +321,7 @@ function Save {
         if ($bytes -ge 1MB) { "{0:N2} MB" -f ($bytes / 1MB) }
         else { "{0:N0} KB" -f ($bytes / 1KB) }
     }
+    Write-Host "⏳ Traitement de AppData en cours... patience !" -ForegroundColor Cyan
 
     $allFiles = Get-ChildItem $BasePath -Recurse -File -ErrorAction SilentlyContinue
     $filteredFiles = @()
@@ -525,15 +526,6 @@ function Invoke-BackupEnv {
     .DESCRIPTION
         Cette fonction appelle le script de profil `backup-perso.ps1`, qui effectue la sauvegarde des fichiers liés à l’environnement utilisateur (dotfiles, configurations, etc.).
         Elle permet de spécifier un dossier de destination explicite via -BackupFolder, ou de déléguer la création du dossier au script lui-même via Init-BackupFolder, en passant les paramètres -Name et -Path.
-
-    .PARAMETER BackupFolder
-        Chemin complet vers le dossier de destination. Si non fourni, le script appellera Init-BackupFolder avec les paramètres -Name et -Path.
-
-    .PARAMETER Name
-        Nom logique du profil de sauvegarde (ex: 'env'). Utilisé par Init-BackupFolder si BackupFolder n’est pas fourni.
-
-    .PARAMETER Path
-        Dossier racine dans lequel Init-BackupFolder créera le dossier de sauvegarde. Par défaut : $env:USERPROFILE\Backups.
     
     .PARAMETER IncludeAppData
         Active la sauvegarde du répertoire %APPDATA%.
@@ -542,18 +534,18 @@ function Invoke-BackupEnv {
 
 
     .EXAMPLE
-        Invoke-BackupEnv -Name 'env' -Path 'D:\Backups' -IncludeAppData
+        Invoke-BackupEnv -LocalRoot $backupFolder -Name "env-perso" -IncludeAppData
         Lance le backup environnemental en incluant la sauvegarde de %APPDATA%.
 
 
     .EXAMPLE
-        Invoke-BackupEnv -BackupFolder 'D:\Backups\env_2025-11-18_16-11'
+        Invoke-BackupEnv -LocalRoot 'D:\Backups\env_2025-11-18_16-11'
     #>
     [CmdletBinding()]
     param (
-        [string]$BackupFolder,
+        [string]$LocalRoot,
         [string]$Name,
-        [string]$Path = "$env:USERPROFILE\Backups",
+        [string]$CloudRoot,
         [switch]$IncludeAppData
     )
 
@@ -564,11 +556,11 @@ function Invoke-BackupEnv {
     }
 
     $invokeParams = @{
-        Name = $Name
-        Path = $Path
     }
-    if ($BackupFolder) { $invokeParams.BackupFolder = $BackupFolder }
-    if ($DryRun)       { $invokeParams.DryRun       = $true }
+
+    if ($LocalRoot)      { $invokeParams.LocalRoot   = $LocalRoot }
+    if ($Name)           { $invokeParams.Name        = $Name }
+    if ($CloudRoot)      { $invokeParams.CloudRoot = $CloudRoot }
     if ($IncludeAppData) { $invokeParams.IncludeAppData = $true }
 
     & $scriptPath @invokeParams
@@ -583,14 +575,6 @@ function Invoke-BackupGames {
         Cette fonction appelle le script de profil `backup-games.ps1`, qui sauvegarde les fichiers de jeux selon une configuration YAML.
         Elle permet de spécifier un dossier de destination explicite via -BackupFolder, ou de déléguer la création du dossier au script lui-même via Init-BackupFolder, en passant les paramètres -Name et -Path.
 
-    .PARAMETER BackupFolder
-        Chemin complet vers le dossier de destination. Si non fourni, le script appellera Init-BackupFolder avec les paramètres -Name et -Path.
-
-    .PARAMETER Name
-        Nom logique du profil de sauvegarde (ex: 'games', 'steam'). Utilisé par Init-BackupFolder si BackupFolder n’est pas fourni.
-
-    .PARAMETER Path
-        Dossier racine dans lequel Init-BackupFolder créera le dossier de sauvegarde. Par défaut : $env:USERPROFILE\Backups.
 
     .EXAMPLE
         Invoke-BackupGames -Name 'games' -Path 'D:\Backups'
@@ -600,9 +584,10 @@ function Invoke-BackupGames {
     #>
     [CmdletBinding()]
     param (
-        [string]$BackupFolder,
+        [string]$LocalRoot,
         [string]$Name,
-        [string]$Path = "$env:USERPROFILE\Backups"
+        [string]$CloudRoot,
+        [int]$Rotation
     )
 
     $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\backup-games.ps1"
@@ -612,9 +597,10 @@ function Invoke-BackupGames {
     }
 
     $invokeParams = @{}
-    if ($BackupFolder) { $invokeParams.BackupFolder = $BackupFolder }
-    if ($Name)         { $invokeParams.Name         = $Name }
-    if ($Path)         { $invokeParams.Path         = $Path }
+    if ($LocalRoot)      { $invokeParams.LocalRoot   = $LocalRoot }
+    if ($Name)           { $invokeParams.Name        = $Name }
+    if ($CloudRoot)      { $invokeParams.CloudRoot   = $CloudRoot }
+    if ($Rotation)       { $invokeParams.Rotation    = $Rotation }
 
     & $scriptPath @invokeParams
 }
