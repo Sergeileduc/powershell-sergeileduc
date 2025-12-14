@@ -324,9 +324,13 @@ function Save {
     Write-Host "⏳ Traitement de AppData en cours... patience !" -ForegroundColor Cyan
 
     $allFiles = Get-ChildItem $BasePath -Recurse -File -ErrorAction SilentlyContinue
+    $total = $allFiles.Count
     $filteredFiles = @()
 
+    $index = 0
+
     foreach ($file in $allFiles) {
+        $index++
         $dir = $file.DirectoryName.ToLower()
         $ext = $file.Extension.ToLower()
         $name = $file.FullName.ToLower()
@@ -348,13 +352,22 @@ function Save {
             $dest = Join-Path $TargetPath ($file.FullName.Substring($BasePath.Length).TrimStart("\"))
             $destParent = Split-Path $dest -Parent
             if (-not (Test-Path $destParent)) { New-Item -ItemType Directory -Path $destParent -Force | Out-Null }
-            Copy-Item -Path $file.FullName -Destination $dest -Force
+            Copy-Item -Path $file.FullName -Destination $dest -Force | Out-Null
+
+        }
+
+        if ($index % 100 -eq 0) {
+            $percent = [math]::Round(($index / $total) * 100)
+            Write-Progress -Activity "Backup AppData" -Status "$index / $total fichiers" -PercentComplete $percent
         }
     }
 
+    # Forcer la barre à se terminer proprement
+    Write-Progress -Activity "Backup AppData" -Status "$total / $total fichiers" -PercentComplete 100
+
+    # Final printout
     $totalSize = ($allFiles | Measure-Object Length -Sum).Sum
     $filteredSize = ($filteredFiles | Measure-Object Length -Sum).Sum
-
     Write-Host ("✅ Sauvegarde AppData terminée : {0} copiés (sur {1})" -f (Format-Size $filteredSize), (Format-Size $totalSize)) -ForegroundColor Green
 }
 
